@@ -1,0 +1,706 @@
+// ============================================================
+// PRISMA SCHEMA - NAIL SPA TÓC MANAGEMENT SYSTEM
+// Database: MongoDB
+// Features: Multi-tenant, Booking, Staff Payroll Management
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum ShopType {
+  NAIL
+  SPA
+  HAIR
+  COMBO
+}
+
+enum ShopStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  OWNER
+  MANAGER
+  STAFF
+  CUSTOMER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  DONE
+  CANCELLED
+  NO_SHOW
+}
+
+enum BookingSource {
+  APP
+  WALK_IN
+  PHONE
+  ZALO
+  WEBSITE
+}
+
+enum PaymentMethod {
+  CASH
+  MOMO
+  VNPAY
+  ZALO_PAY
+  CARD
+  TRANSFER
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  PARTIAL
+  REFUNDED
+}
+
+enum CommissionType {
+  PERCENT          // % trên doanh thu dịch vụ
+  FIXED_PER_SERVICE // Cố định mỗi dịch vụ
+  FIXED_PER_DAY    // Lương ngày
+  SALARY           // Lương cứng tháng
+}
+
+enum SalaryPeriod {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+enum SalaryStatus {
+  DRAFT
+  CONFIRMED
+  PAID
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+  DAY_OFF_APPROVED
+}
+
+enum NotificationType {
+  REMINDER
+  CONFIRMED
+  CANCELLED
+  PROMO
+  SALARY
+  REVIEW_REQUEST
+}
+
+enum NotificationChannel {
+  SMS
+  ZALO
+  PUSH
+  EMAIL
+}
+
+enum PromotionType {
+  PERCENT
+  FIXED
+  FREE_SERVICE
+}
+
+// ============================================================
+// SHOP (TIỆM)
+// ============================================================
+
+model Shop {
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  slug        String     @unique
+  type        ShopType   @default(NAIL)
+  status      ShopStatus @default(ACTIVE)
+  phone       String?
+  email       String?
+  address     String?
+  city        String?
+  district    String?
+  logoUrl     String?
+  coverUrl    String?
+  description String?
+  openTime    String     @default("08:00") // "HH:mm"
+  closeTime   String     @default("20:00")
+  workDays    Int[]      @default([1, 2, 3, 4, 5, 6]) // 0=CN, 1-6=T2-T7
+  timezone    String     @default("Asia/Ho_Chi_Minh")
+  ownerId     String     @db.ObjectId
+
+  // Settings nhúng thẳng vào shop
+  settings    ShopSettings?
+
+  // Relations
+  owner             User               @relation("ShopOwner", fields: [ownerId], references: [id])
+  staffMembers      ShopStaff[]
+  services          Service[]
+  serviceCategories ServiceCategory[]
+  appointments      Appointment[]
+  promotions        Promotion[]
+  notifications     Notification[]
+  salaryConfigs     StaffSalaryConfig[]
+  payrolls          Payroll[]
+  reviews           Review[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("shops")
+}
+
+type ShopSettings {
+  autoConfirm          Boolean @default(false) // Tự confirm lịch không cần duyệt
+  autoConfirmMinutes   Int     @default(30)    // Confirm sau N phút nếu bật
+  reminderH24          Boolean @default(true)  // Nhắc trước 24h
+  reminderH2           Boolean @default(true)  // Nhắc trước 2h
+  reviewRequestMinutes Int     @default(30)    // Gửi link review sau N phút hoàn thành
+  depositRequired      Boolean @default(false) // Yêu cầu đặt cọc
+  depositPercent       Float   @default(30)    // % đặt cọc
+  maxAdvanceBookingDays Int    @default(30)    // Đặt trước tối đa N ngày
+  slotIntervalMinutes  Int     @default(15)    // Granularity của slot
+}
+
+// ============================================================
+// USER (OWNER / STAFF / CUSTOMER)
+// ============================================================
+
+model User {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  phone        String   @unique
+  email        String?  @unique
+  passwordHash String?
+  role         UserRole @default(CUSTOMER)
+  avatarUrl    String?
+  dob          DateTime?
+  gender       Gender?
+  isActive     Boolean  @default(true)
+
+  // Relations
+  ownedShops         Shop[]          @relation("ShopOwner")
+  staffProfiles      ShopStaff[]
+  customerAppointments Appointment[] @relation("CustomerAppointments")
+  staffAppointments    Appointment[] @relation("StaffAppointments")
+  notifications      Notification[]
+  reviews            Review[]
+  attendances        Attendance[]
+  payrolls           Payroll[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+// ============================================================
+// SHOP STAFF — Nhân viên của tiệm
+// ============================================================
+
+model ShopStaff {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  shopId       String   @db.ObjectId
+  userId       String   @db.ObjectId
+  nickname     String?              // Tên hiển thị trong tiệm
+  bio          String?
+  avatarUrl    String?
+  position     String?              // "Thợ nail", "Kỹ thuật viên", "Lễ tân"
+  isActive     Boolean  @default(true)
+  joinedAt     DateTime @default(now())
+  leftAt       DateTime?
+  notes        String?              // Ghi chú nội bộ về nhân viên
+
+  // Hiệu suất (cache, cập nhật mỗi khi có lịch done)
+  totalServiced Int    @default(0)  // Tổng số lịch đã làm
+  avgRating     Float  @default(0)
+  totalRatings  Int    @default(0)
+
+  shop User @relation(fields: [userId], references: [id])
+  shopRel Shop @relation(fields: [shopId], references: [id])
+
+  schedule      StaffSchedule[]
+  offDays       StaffOffDay[]
+  salaryConfig  StaffSalaryConfig?
+  commissions   ServiceCommission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shopId, userId])
+  @@map("shop_staff")
+}
+
+// ============================================================
+// STAFF SCHEDULE — Lịch làm việc theo tuần
+// ============================================================
+
+model StaffSchedule {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  shopStaffId String  @db.ObjectId
+  dayOfWeek   Int     // 0=CN, 1=T2 ... 6=T7
+  startTime   String  // "HH:mm"
+  endTime     String
+  isOff       Boolean @default(false)
+
+  shopStaff ShopStaff @relation(fields: [shopStaffId], references: [id])
+
+  @@unique([shopStaffId, dayOfWeek])
+  @@map("staff_schedules")
+}
+
+// ============================================================
+// STAFF OFF DAY — Nghỉ theo ngày cụ thể
+// ============================================================
+
+model StaffOffDay {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  shopStaffId String   @db.ObjectId
+  offDate     DateTime
+  reason      String?
+  approvedBy  String?  @db.ObjectId // userId của manager duyệt
+  isApproved  Boolean  @default(false)
+
+  shopStaff ShopStaff @relation(fields: [shopStaffId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("staff_off_days")
+}
+
+// ============================================================
+// ATTENDANCE — Chấm công
+// ============================================================
+
+model Attendance {
+  id          String           @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String           @db.ObjectId
+  shopId      String           @db.ObjectId
+  date        DateTime         // Ngày làm
+  checkIn     DateTime?        // Giờ vào
+  checkOut    DateTime?        // Giờ ra
+  status      AttendanceStatus @default(PRESENT)
+  lateMinutes Int              @default(0)  // Số phút đến trễ
+  workMinutes Int              @default(0)  // Tổng phút làm việc (tính khi checkout)
+  note        String?
+  recordedBy  String?          @db.ObjectId // Ai chấm công (manager)
+
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, shopId, date])
+  @@map("attendances")
+}
+
+// ============================================================
+// STAFF SALARY CONFIG — Cấu hình lương & hoa hồng
+// ============================================================
+
+model StaffSalaryConfig {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  shopId        String         @db.ObjectId
+  shopStaffId   String         @unique @db.ObjectId
+  commissionType CommissionType @default(PERCENT)
+
+  // Lương cứng (nếu có)
+  baseSalary    Float          @default(0)  // VND/tháng hoặc VND/ngày
+  salaryPeriod  SalaryPeriod   @default(MONTHLY)
+
+  // Hoa hồng mặc định (có thể override theo từng dịch vụ)
+  defaultCommissionPercent Float @default(0)    // % hoa hồng mặc định
+  defaultFixedPerService   Float @default(0)    // Cố định/dịch vụ
+
+  // Thưởng/Phạt
+  bonusPerPositiveReview  Float @default(0)   // Thưởng khi nhận review 5*
+  penaltyPerNoShow        Float @default(0)   // Phạt khi khách no-show (do thợ)
+  penaltyPerLateMinute    Float @default(0)   // Phạt/phút đi trễ
+
+  // OT
+  otMultiplier  Float         @default(1.5)   // Hệ số OT
+
+  effectiveFrom DateTime      @default(now())
+  note          String?
+
+  shop      Shop      @relation(fields: [shopId], references: [id])
+  shopStaff ShopStaff @relation(fields: [shopStaffId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("staff_salary_configs")
+}
+
+// ============================================================
+// SERVICE COMMISSION — Hoa hồng riêng theo từng dịch vụ
+// Override StaffSalaryConfig.defaultCommissionPercent
+// ============================================================
+
+model ServiceCommission {
+  id            String  @id @default(auto()) @map("_id") @db.ObjectId
+  shopStaffId   String  @db.ObjectId
+  serviceId     String  @db.ObjectId
+  commissionType CommissionType @default(PERCENT)
+  value         Float   // % hoặc số tiền cố định
+
+  shopStaff ShopStaff @relation(fields: [shopStaffId], references: [id])
+  service   Service   @relation(fields: [serviceId], references: [id])
+
+  @@unique([shopStaffId, serviceId])
+  @@map("service_commissions")
+}
+
+// ============================================================
+// PAYROLL — Bảng lương kỳ
+// ============================================================
+
+model Payroll {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  shopId        String       @db.ObjectId
+  userId        String       @db.ObjectId
+  periodStart   DateTime     // Từ ngày
+  periodEnd     DateTime     // Đến ngày
+  status        SalaryStatus @default(DRAFT)
+
+  // Tổng hợp tự động từ appointments + attendance
+  totalWorkDays      Int    @default(0)
+  totalWorkMinutes   Int    @default(0)
+  totalServices      Int    @default(0)   // Số dịch vụ đã làm
+  totalRevenue       Float  @default(0)   // Tổng doanh thu từ dịch vụ đã làm
+
+  // Các khoản tiền
+  baseSalary         Float  @default(0)   // Lương cứng kỳ này
+  commissionTotal    Float  @default(0)   // Tổng hoa hồng
+  bonusTotal         Float  @default(0)   // Tổng thưởng (review 5*, KPI...)
+  penaltyTotal       Float  @default(0)   // Tổng phạt (trễ, no-show...)
+  otAmount           Float  @default(0)   // Tiền OT
+  advanceDeduction   Float  @default(0)   // Trừ tạm ứng
+  otherDeductions    Float  @default(0)   // Khấu trừ khác
+  otherBonuses       Float  @default(0)   // Thưởng khác (thưởng KPI thủ công)
+
+  // Tổng thực nhận
+  grossAmount        Float  @default(0)   // Tổng trước khấu trừ
+  netAmount          Float  @default(0)   // Thực nhận = gross - deductions
+
+  // Chi tiết dòng
+  lineItems          PayrollLineItem[]  // Embedded
+
+  // Ghi chú
+  note               String?
+  approvedBy         String?  @db.ObjectId
+  approvedAt         DateTime?
+  paidAt             DateTime?
+  paymentMethod      PaymentMethod?
+  paymentNote        String?
+
+  shop Shop @relation(fields: [shopId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shopId, userId, periodStart, periodEnd])
+  @@map("payrolls")
+}
+
+// Embedded trong Payroll — Chi tiết từng khoản
+type PayrollLineItem {
+  type        String   // "commission", "bonus_review", "penalty_late", "ot", "advance", "manual_bonus"
+  description String
+  amount      Float
+  date        DateTime?
+  referenceId String?  // appointmentId, attendanceId...
+}
+
+// ============================================================
+// SALARY ADVANCE — Tạm ứng lương
+// ============================================================
+
+model SalaryAdvance {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  shopId      String   @db.ObjectId
+  userId      String   @db.ObjectId
+  amount      Float
+  reason      String?
+  approvedBy  String?  @db.ObjectId
+  isApproved  Boolean  @default(false)
+  isPaid      Boolean  @default(false)
+  paidAt      DateTime?
+  deductedPayrollId String? @db.ObjectId // Đã trừ vào kỳ lương nào
+
+  createdAt DateTime @default(now())
+
+  @@map("salary_advances")
+}
+
+// ============================================================
+// SERVICE CATEGORY — Danh mục dịch vụ
+// ============================================================
+
+model ServiceCategory {
+  id       String  @id @default(auto()) @map("_id") @db.ObjectId
+  shopId   String  @db.ObjectId
+  name     String
+  icon     String?
+  sortOrder Int    @default(0)
+  isActive Boolean @default(true)
+
+  shop     Shop      @relation(fields: [shopId], references: [id])
+  services Service[]
+
+  @@map("service_categories")
+}
+
+// ============================================================
+// SERVICE — Dịch vụ
+// ============================================================
+
+model Service {
+  id           String  @id @default(auto()) @map("_id") @db.ObjectId
+  shopId       String  @db.ObjectId
+  categoryId   String? @db.ObjectId
+  name         String
+  description  String?
+  price        Float
+  durationMin  Int     // Thời gian thực hiện (phút)
+  imageUrl     String?
+  isActive     Boolean @default(true)
+  sortOrder    Int     @default(0)
+
+  shop     Shop             @relation(fields: [shopId], references: [id])
+  category ServiceCategory? @relation(fields: [categoryId], references: [id])
+
+  appointmentServices AppointmentService[]
+  commissions         ServiceCommission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("services")
+}
+
+// ============================================================
+// APPOINTMENT — Lịch hẹn
+// ============================================================
+
+model Appointment {
+  id           String            @id @default(auto()) @map("_id") @db.ObjectId
+  shopId       String            @db.ObjectId
+  customerId   String            @db.ObjectId
+  staffId      String?           @db.ObjectId  // null = chưa chọn thợ
+  date         DateTime          // Chỉ ngày
+  startTime    String            // "HH:mm"
+  endTime      String            // Tính từ sum(durationMin)
+  status       AppointmentStatus @default(PENDING)
+  source       BookingSource     @default(APP)
+  note         String?           // Ghi chú của khách
+  internalNote String?           // Ghi chú của staff
+  cancelReason String?
+  checkedInAt  DateTime?
+  completedAt  DateTime?
+
+  // Tổng tiền
+  subtotal     Float   @default(0)
+  discountAmount Float @default(0)
+  promotionId  String? @db.ObjectId
+  totalAmount  Float   @default(0)
+
+  shop     Shop  @relation(fields: [shopId], references: [id])
+  customer User  @relation("CustomerAppointments", fields: [customerId], references: [id])
+  staff    User? @relation("StaffAppointments", fields: [staffId], references: [id])
+
+  services AppointmentService[]
+  payment  Payment?
+  review   Review?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("appointments")
+}
+
+// ============================================================
+// APPOINTMENT SERVICE — N-N giữa Appointment và Service
+// ============================================================
+
+model AppointmentService {
+  id            String @id @default(auto()) @map("_id") @db.ObjectId
+  appointmentId String @db.ObjectId
+  serviceId     String @db.ObjectId
+  serviceName   String // Snapshot tên tại thời điểm đặt
+  priceAtBooking Float  // Snapshot giá tại thời điểm đặt
+  durationMin   Int    // Snapshot thời gian
+  commissionAmount Float @default(0) // Hoa hồng thực tế tính ra sau khi done
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+  service     Service     @relation(fields: [serviceId], references: [id])
+
+  @@map("appointment_services")
+}
+
+// ============================================================
+// PAYMENT — Thanh toán
+// ============================================================
+
+model Payment {
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
+  appointmentId String        @unique @db.ObjectId
+  amount        Float
+  paidAmount    Float         @default(0)
+  method        PaymentMethod @default(CASH)
+  status        PaymentStatus @default(PENDING)
+  transactionId String?       // Mã GD online
+  paidAt        DateTime?
+  note          String?
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("payments")
+}
+
+// ============================================================
+// REVIEW — Đánh giá
+// ============================================================
+
+model Review {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  appointmentId String   @unique @db.ObjectId
+  customerId    String   @db.ObjectId
+  shopId        String   @db.ObjectId
+  staffId       String?  @db.ObjectId
+  rating        Int      // 1-5
+  comment       String?
+  imageUrls     String[] @default([])
+  isPublic      Boolean  @default(true)
+  replyContent  String?  // Phản hồi của tiệm
+  repliedAt     DateTime?
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+  customer    User        @relation(fields: [customerId], references: [id])
+  shop        Shop        @relation(fields: [shopId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("reviews")
+}
+
+// ============================================================
+// PROMOTION — Khuyến mãi
+// ============================================================
+
+model Promotion {
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
+  shopId        String        @db.ObjectId
+  name          String
+  code          String        @unique
+  type          PromotionType @default(PERCENT)
+  value         Float
+  minOrderAmount Float        @default(0)
+  maxDiscount   Float?        // Giảm tối đa (áp dụng cho type PERCENT)
+  maxUses       Int?
+  usedCount     Int           @default(0)
+  startDate     DateTime
+  endDate       DateTime
+  isActive      Boolean       @default(true)
+  description   String?
+
+  shop Shop @relation(fields: [shopId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("promotions")
+}
+
+// ============================================================
+// NOTIFICATION — Thông báo
+// ============================================================
+
+model Notification {
+  id        String              @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String              @db.ObjectId
+  shopId    String?             @db.ObjectId
+  type      NotificationType
+  channel   NotificationChannel
+  title     String
+  content   String
+  isRead    Boolean             @default(false)
+  sentAt    DateTime?
+  metadata  Json?               // Extra data: appointmentId, payrollId...
+
+  user User  @relation(fields: [userId], references: [id])
+  shop Shop? @relation(fields: [shopId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
+
+// ============================================================
+// LOYALTY — Tích điểm
+// ============================================================
+
+model LoyaltyPoint {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  customerId  String   @db.ObjectId
+  shopId      String   @db.ObjectId
+  points      Int      @default(0)    // Điểm hiện tại
+  totalEarned Int      @default(0)    // Tổng điểm đã tích lũy
+  totalSpent  Float    @default(0)    // Tổng tiền đã chi
+  tier        String   @default("BRONZE") // BRONZE / SILVER / GOLD / DIAMOND
+
+  history LoyaltyHistory[]
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([customerId, shopId])
+  @@map("loyalty_points")
+}
+
+type LoyaltyHistory {
+  delta       Int      // + hoặc -
+  reason      String   // "Đặt lịch", "Đổi thưởng"...
+  referenceId String?  // appointmentId
+  createdAt   DateTime
+}
+
+// ============================================================
+// AUDIT LOG — Lịch sử thay đổi
+// ============================================================
+
+model AuditLog {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  shopId     String?  @db.ObjectId
+  userId     String   @db.ObjectId
+  action     String   // "UPDATE_APPOINTMENT", "CONFIRM_PAYROLL"...
+  entity     String   // "Appointment", "Payroll"...
+  entityId   String   @db.ObjectId
+  changes    Json?    // { before: {...}, after: {...} }
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@map("audit_logs")
+}

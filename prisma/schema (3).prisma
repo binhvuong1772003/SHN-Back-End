@@ -1,0 +1,591 @@
+// ============================================================
+// PRISMA SCHEMA - NAIL SPA TÓC MANAGEMENT SYSTEM
+// Database: MongoDB | Auth: JWT + OAuth2 + Refresh Token
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum ShopType { NAIL SPA HAIR COMBO }
+enum ShopStatus { ACTIVE INACTIVE SUSPENDED }
+enum UserRole { SUPER_ADMIN OWNER MANAGER STAFF CUSTOMER }
+enum Gender { MALE FEMALE OTHER }
+enum OAuthProvider { GOOGLE FACEBOOK ZALO }
+enum AppointmentStatus { PENDING CONFIRMED IN_PROGRESS DONE CANCELLED NO_SHOW }
+enum BookingSource { APP WALK_IN PHONE ZALO WEBSITE }
+enum PaymentMethod { CASH MOMO VNPAY ZALO_PAY CARD TRANSFER }
+enum PaymentStatus { PENDING PAID PARTIAL REFUNDED }
+enum CommissionType { PERCENT FIXED_PER_SERVICE FIXED_PER_DAY SALARY }
+enum SalaryPeriod { WEEKLY BIWEEKLY MONTHLY }
+enum SalaryStatus { DRAFT CONFIRMED PAID }
+enum AttendanceStatus { PRESENT ABSENT LATE HALF_DAY DAY_OFF_APPROVED }
+enum NotificationType { REMINDER CONFIRMED CANCELLED PROMO SALARY REVIEW_REQUEST }
+enum NotificationChannel { SMS ZALO PUSH EMAIL }
+enum PromotionType { PERCENT FIXED FREE_SERVICE }
+
+// ============================================================
+// USER
+// ============================================================
+
+model User {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  phone        String?   @unique
+  email        String?   @unique
+  passwordHash String?
+  role         UserRole  @default(CUSTOMER)
+  avatarUrl    String?
+  dob          DateTime?
+  gender       Gender?
+  isActive     Boolean   @default(true)
+  isVerified   Boolean   @default(false)
+
+  oauthAccounts        OAuthAccount[]
+  refreshTokens        RefreshToken[]
+  ownedShops           Shop[]          @relation("ShopOwner")
+  staffProfiles        ShopStaff[]
+  customerAppointments Appointment[]   @relation("CustomerAppointments")
+  staffAppointments    Appointment[]   @relation("StaffAppointments")
+  notifications        Notification[]
+  reviews              Review[]
+  attendances          Attendance[]
+  payrolls             Payroll[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+// ============================================================
+// OAUTH ACCOUNT — Google / Facebook / Zalo
+// ============================================================
+
+model OAuthAccount {
+  id           String        @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String        @db.ObjectId
+  provider     OAuthProvider
+  providerId   String        // sub từ Google, id từ Facebook...
+  email        String?
+  name         String?
+  avatarUrl    String?
+  // Token của provider (nếu cần gọi API provider sau này)
+  accessToken  String?
+  refreshToken String?
+  expiresAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([provider, providerId])
+  @@map("oauth_accounts")
+}
+
+// ============================================================
+// REFRESH TOKEN — Token hệ thống (không phải token OAuth)
+// Dùng Refresh Token Rotation + Family để chống reuse attack
+// ============================================================
+
+model RefreshToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  tokenHash  String   @unique // bcrypt hash của token thật
+  family     String   // UUID family — cả family bị revoke nếu detect reuse
+  deviceInfo String?  // User-Agent
+  ipAddress  String?
+  isRevoked  Boolean  @default(false)
+  expiresAt  DateTime
+  lastUsedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
+
+// ============================================================
+// OTP — Xác thực số điện thoại
+// ============================================================
+
+model EmailVerification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  phone     String
+  code      String
+  attempts  Int      @default(0)
+  isUsed    Boolean  @default(false)
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+
+  @@map("otp_codes")
+}
+
+// ============================================================
+// SHOP
+// ============================================================
+
+model Shop {
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  slug        String     @unique
+  type        ShopType   @default(NAIL)
+  status      ShopStatus @default(ACTIVE)
+  phone       String?
+  email       String?
+  address     String?
+  city        String?
+  district    String?
+  logoUrl     String?
+  coverUrl    String?
+  description String?
+  openTime    String     @default("08:00")
+  closeTime   String     @default("20:00")
+  workDays    Int[]      @default([1, 2, 3, 4, 5, 6])
+  timezone    String     @default("Asia/Ho_Chi_Minh")
+  ownerId     String     @db.ObjectId
+  settings    ShopSettings?
+
+  owner             User                @relation("ShopOwner", fields: [ownerId], references: [id])
+  staffMembers      ShopStaff[]
+  services          Service[]
+  serviceCategories ServiceCategory[]
+  appointments      Appointment[]
+  promotions        Promotion[]
+  notifications     Notification[]
+  salaryConfigs     StaffSalaryConfig[]
+  payrolls          Payroll[]
+  reviews           Review[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("shops")
+}
+
+type ShopSettings {
+  autoConfirm           Boolean @default(false)
+  autoConfirmMinutes    Int     @default(30)
+  reminderH24           Boolean @default(true)
+  reminderH2            Boolean @default(true)
+  reviewRequestMinutes  Int     @default(30)
+  depositRequired       Boolean @default(false)
+  depositPercent        Float   @default(30)
+  maxAdvanceBookingDays Int     @default(30)
+  slotIntervalMinutes   Int     @default(15)
+}
+
+// ============================================================
+// SHOP STAFF + SCHEDULE + ATTENDANCE
+// ============================================================
+
+model ShopStaff {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  shopId        String    @db.ObjectId
+  userId        String    @db.ObjectId
+  nickname      String?
+  bio           String?
+  avatarUrl     String?
+  position      String?
+  isActive      Boolean   @default(true)
+  joinedAt      DateTime  @default(now())
+  leftAt        DateTime?
+  notes         String?
+  totalServiced Int       @default(0)
+  avgRating     Float     @default(0)
+  totalRatings  Int       @default(0)
+
+  user User @relation(fields: [userId], references: [id])
+  shop Shop @relation(fields: [shopId], references: [id])
+
+  schedule     StaffSchedule[]
+  offDays      StaffOffDay[]
+  salaryConfig StaffSalaryConfig?
+  commissions  ServiceCommission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shopId, userId])
+  @@map("shop_staff")
+}
+
+model StaffSchedule {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  shopStaffId String  @db.ObjectId
+  dayOfWeek   Int
+  startTime   String
+  endTime     String
+  isOff       Boolean @default(false)
+
+  shopStaff ShopStaff @relation(fields: [shopStaffId], references: [id])
+
+  @@unique([shopStaffId, dayOfWeek])
+  @@map("staff_schedules")
+}
+
+model StaffOffDay {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  shopStaffId String   @db.ObjectId
+  offDate     DateTime
+  reason      String?
+  approvedBy  String?  @db.ObjectId
+  isApproved  Boolean  @default(false)
+
+  shopStaff ShopStaff @relation(fields: [shopStaffId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("staff_off_days")
+}
+
+model Attendance {
+  id          String           @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String           @db.ObjectId
+  shopId      String           @db.ObjectId
+  date        DateTime
+  checkIn     DateTime?
+  checkOut    DateTime?
+  status      AttendanceStatus @default(PRESENT)
+  lateMinutes Int              @default(0)
+  workMinutes Int              @default(0)
+  note        String?
+  recordedBy  String?          @db.ObjectId
+
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, shopId, date])
+  @@map("attendances")
+}
+
+// ============================================================
+// SALARY CONFIG + PAYROLL + ADVANCE
+// ============================================================
+
+model StaffSalaryConfig {
+  id                       String         @id @default(auto()) @map("_id") @db.ObjectId
+  shopId                   String         @db.ObjectId
+  shopStaffId              String         @unique @db.ObjectId
+  commissionType           CommissionType @default(PERCENT)
+  baseSalary               Float          @default(0)
+  salaryPeriod             SalaryPeriod   @default(MONTHLY)
+  defaultCommissionPercent Float          @default(0)
+  defaultFixedPerService   Float          @default(0)
+  bonusPerPositiveReview   Float          @default(0)
+  penaltyPerNoShow         Float          @default(0)
+  penaltyPerLateMinute     Float          @default(0)
+  otMultiplier             Float          @default(1.5)
+  effectiveFrom            DateTime       @default(now())
+  note                     String?
+
+  shop      Shop      @relation(fields: [shopId], references: [id])
+  shopStaff ShopStaff @relation(fields: [shopStaffId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("staff_salary_configs")
+}
+
+model ServiceCommission {
+  id             String         @id @default(auto()) @map("_id") @db.ObjectId
+  shopStaffId    String         @db.ObjectId
+  serviceId      String         @db.ObjectId
+  commissionType CommissionType @default(PERCENT)
+  value          Float
+
+  shopStaff ShopStaff @relation(fields: [shopStaffId], references: [id])
+  service   Service   @relation(fields: [serviceId], references: [id])
+
+  @@unique([shopStaffId, serviceId])
+  @@map("service_commissions")
+}
+
+model Payroll {
+  id               String         @id @default(auto()) @map("_id") @db.ObjectId
+  shopId           String         @db.ObjectId
+  userId           String         @db.ObjectId
+  periodStart      DateTime
+  periodEnd        DateTime
+  status           SalaryStatus   @default(DRAFT)
+  totalWorkDays    Int            @default(0)
+  totalWorkMinutes Int            @default(0)
+  totalServices    Int            @default(0)
+  totalRevenue     Float          @default(0)
+  baseSalary       Float          @default(0)
+  commissionTotal  Float          @default(0)
+  bonusTotal       Float          @default(0)
+  penaltyTotal     Float          @default(0)
+  otAmount         Float          @default(0)
+  advanceDeduction Float          @default(0)
+  otherDeductions  Float          @default(0)
+  otherBonuses     Float          @default(0)
+  grossAmount      Float          @default(0)
+  netAmount        Float          @default(0)
+  lineItems        PayrollLineItem[]
+  note             String?
+  approvedBy       String?        @db.ObjectId
+  approvedAt       DateTime?
+  paidAt           DateTime?
+  paymentMethod    PaymentMethod?
+  paymentNote      String?
+
+  shop Shop @relation(fields: [shopId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shopId, userId, periodStart, periodEnd])
+  @@map("payrolls")
+}
+
+type PayrollLineItem {
+  type        String
+  description String
+  amount      Float
+  date        DateTime?
+  referenceId String?
+}
+
+model SalaryAdvance {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  shopId            String    @db.ObjectId
+  userId            String    @db.ObjectId
+  amount            Float
+  reason            String?
+  approvedBy        String?   @db.ObjectId
+  isApproved        Boolean   @default(false)
+  isPaid            Boolean   @default(false)
+  paidAt            DateTime?
+  deductedPayrollId String?   @db.ObjectId
+
+  createdAt DateTime @default(now())
+
+  @@map("salary_advances")
+}
+
+// ============================================================
+// SERVICE / APPOINTMENT / PAYMENT / REVIEW
+// ============================================================
+
+model ServiceCategory {
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  shopId    String  @db.ObjectId
+  name      String
+  icon      String?
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  shop     Shop      @relation(fields: [shopId], references: [id])
+  services Service[]
+
+  @@map("service_categories")
+}
+
+model Service {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  shopId      String  @db.ObjectId
+  categoryId  String? @db.ObjectId
+  name        String
+  description String?
+  price       Float
+  durationMin Int
+  imageUrl    String?
+  isActive    Boolean @default(true)
+  sortOrder   Int     @default(0)
+
+  shop     Shop             @relation(fields: [shopId], references: [id])
+  category ServiceCategory? @relation(fields: [categoryId], references: [id])
+
+  appointmentServices AppointmentService[]
+  commissions         ServiceCommission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("services")
+}
+
+model Appointment {
+  id             String            @id @default(auto()) @map("_id") @db.ObjectId
+  shopId         String            @db.ObjectId
+  customerId     String            @db.ObjectId
+  staffId        String?           @db.ObjectId
+  date           DateTime
+  startTime      String
+  endTime        String
+  status         AppointmentStatus @default(PENDING)
+  source         BookingSource     @default(APP)
+  note           String?
+  internalNote   String?
+  cancelReason   String?
+  checkedInAt    DateTime?
+  completedAt    DateTime?
+  subtotal       Float             @default(0)
+  discountAmount Float             @default(0)
+  promotionId    String?           @db.ObjectId
+  totalAmount    Float             @default(0)
+
+  shop     Shop  @relation(fields: [shopId], references: [id])
+  customer User  @relation("CustomerAppointments", fields: [customerId], references: [id])
+  staff    User? @relation("StaffAppointments", fields: [staffId], references: [id])
+
+  services AppointmentService[]
+  payment  Payment?
+  review   Review?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("appointments")
+}
+
+model AppointmentService {
+  id               String @id @default(auto()) @map("_id") @db.ObjectId
+  appointmentId    String @db.ObjectId
+  serviceId        String @db.ObjectId
+  serviceName      String
+  priceAtBooking   Float
+  durationMin      Int
+  commissionAmount Float  @default(0)
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+  service     Service     @relation(fields: [serviceId], references: [id])
+
+  @@map("appointment_services")
+}
+
+model Payment {
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
+  appointmentId String        @unique @db.ObjectId
+  amount        Float
+  paidAmount    Float         @default(0)
+  method        PaymentMethod @default(CASH)
+  status        PaymentStatus @default(PENDING)
+  transactionId String?
+  paidAt        DateTime?
+  note          String?
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("payments")
+}
+
+model Review {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  appointmentId String    @unique @db.ObjectId
+  customerId    String    @db.ObjectId
+  shopId        String    @db.ObjectId
+  staffId       String?   @db.ObjectId
+  rating        Int
+  comment       String?
+  imageUrls     String[]  @default([])
+  isPublic      Boolean   @default(true)
+  replyContent  String?
+  repliedAt     DateTime?
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+  customer    User        @relation(fields: [customerId], references: [id])
+  shop        Shop        @relation(fields: [shopId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("reviews")
+}
+
+model Promotion {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  shopId         String        @db.ObjectId
+  name           String
+  code           String        @unique
+  type           PromotionType @default(PERCENT)
+  value          Float
+  minOrderAmount Float         @default(0)
+  maxDiscount    Float?
+  maxUses        Int?
+  usedCount      Int           @default(0)
+  startDate      DateTime
+  endDate        DateTime
+  isActive       Boolean       @default(true)
+  description    String?
+
+  shop Shop @relation(fields: [shopId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("promotions")
+}
+
+model Notification {
+  id        String              @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String              @db.ObjectId
+  shopId    String?             @db.ObjectId
+  type      NotificationType
+  channel   NotificationChannel
+  title     String
+  content   String
+  isRead    Boolean             @default(false)
+  sentAt    DateTime?
+  metadata  Json?
+
+  user User  @relation(fields: [userId], references: [id])
+  shop Shop? @relation(fields: [shopId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
+
+model LoyaltyPoint {
+  id          String           @id @default(auto()) @map("_id") @db.ObjectId
+  customerId  String           @db.ObjectId
+  shopId      String           @db.ObjectId
+  points      Int              @default(0)
+  totalEarned Int              @default(0)
+  totalSpent  Float            @default(0)
+  tier        String           @default("BRONZE")
+  history     LoyaltyHistory[]
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([customerId, shopId])
+  @@map("loyalty_points")
+}
+
+type LoyaltyHistory {
+  delta       Int
+  reason      String
+  referenceId String?
+  createdAt   DateTime
+}
+
+model AuditLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  shopId    String?  @db.ObjectId
+  userId    String   @db.ObjectId
+  action    String
+  entity    String
+  entityId  String   @db.ObjectId
+  changes   Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}
