@@ -86,7 +86,7 @@ export const loginWithEmailController = async (
     });
     return res
       .status(200)
-      .json({ success: true, acessToken: tokens.accessToken, user });
+      .json({ success: true, accessToken: tokens.accessToken, user });
   } catch (err: any) {
     next(err);
   }
@@ -116,7 +116,7 @@ export const refresthTokenController = async (
 
     return res
       .status(200)
-      .json({ success: true, acessToken: tokens.accessToken });
+      .json({ success: true, accessToken: tokens.accessToken });
   } catch (err) {
     next(err);
   }

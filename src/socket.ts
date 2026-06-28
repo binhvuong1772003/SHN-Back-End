@@ -14,6 +14,10 @@ export const initSocket = (httpServer: HttpServer): void => {
       console.log(`✅ User ${userId} joined room`); // thêm dòng này
     });
 
+    socket.on('join_shop', (shopId: string) => {
+      socket.join(`shop:${shopId}`);
+      console.log(`✅ Joined shop room: shop:${shopId}`);
+    });
     socket.on('disconnect', () => {
       console.log('Client disconnected:', socket.id);
     });

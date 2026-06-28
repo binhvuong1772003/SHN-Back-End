@@ -115,6 +115,9 @@ enum NotificationType {
   PROMO
   SALARY
   REVIEW_REQUEST
+  OFF_DAY_REQUEST   // ← thêm
+  OFF_DAY_RESPONSE  // ← thêm
+  ATTENDANCE        // ← thêm
 }
 
 enum NotificationChannel {
@@ -594,10 +597,6 @@ model OptionValue {
   option            ServiceOption            @relation(fields: [optionId], references: [id])
   appointmentValues AppointmentOptionValue[]
   packageItems      ServicePackageItem[]
-  packageAddons     PackageAddon[]
-  appointmentPackageAddons AppointmentPackageAddon[]
-
-  @@map("option_values")
 }
 
 model ServicePackage {
@@ -634,13 +633,13 @@ model ServicePackageItem {
 }
 
 model PackageAddon {
-  id            String @id @default(auto()) @map("_id") @db.ObjectId
-  packageId     String @db.ObjectId
-  optionValueId String @db.ObjectId
-  extraPrice    Float
+  id         String @id @default(auto()) @map("_id") @db.ObjectId
+  packageId  String @db.ObjectId
+  addonId    String @db.ObjectId 
+  extraPrice Float                
 
-  package     ServicePackage @relation(fields: [packageId], references: [id])
-  optionValue OptionValue    @relation(fields: [optionValueId], references: [id])
+  package ServicePackage @relation(fields: [packageId], references: [id])
+  addon   AddonService   @relation(fields: [addonId], references: [id])  // ← đổi relation
 
   @@map("package_addons")
 }
@@ -650,13 +649,15 @@ model AddonService {
   shopId    String  @db.ObjectId
   serviceId String? @db.ObjectId
   name      String
-  price     Float
+  price     Float             
   duration  Int?
   isActive  Boolean @default(true)
   sortOrder Int     @default(0)
 
+  appointmentPackageAddons AppointmentPackageAddon[] 
   shop              Shop               @relation(fields: [shopId], references: [id])
   service           Service?           @relation(fields: [serviceId], references: [id])
+  packageAddons     PackageAddon[]    
   appointmentAddons AppointmentAddon[]
 
   @@map("addon_services")
@@ -689,6 +690,7 @@ model Appointment {
   shop     Shop  @relation(fields: [shopId], references: [id])
   customer User  @relation("CustomerAppointments", fields: [customerId], references: [id])
   staff    User? @relation("StaffAppointments", fields: [staffId], references: [id])
+  promotion Promotion? @relation(fields: [promotionId], references: [id])
 
   services AppointmentService[]
   packages AppointmentPackage[]
@@ -746,11 +748,11 @@ model AppointmentPackage {
 model AppointmentPackageAddon {
   id                   String @id @default(auto()) @map("_id") @db.ObjectId
   appointmentPackageId String @db.ObjectId
-  optionValueId        String @db.ObjectId
+  addonId              String @db.ObjectId  
   extraPrice           Float
 
   appointmentPackage AppointmentPackage @relation(fields: [appointmentPackageId], references: [id])
-  optionValue        OptionValue        @relation(fields: [optionValueId], references: [id])
+  addon              AddonService       @relation(fields: [addonId], references: [id])  // ← đổi relation
 
   @@map("appointment_package_addons")
 }
@@ -826,6 +828,7 @@ model Promotion {
   endDate        DateTime
   isActive       Boolean       @default(true)
   description    String?
+  appointments   Appointment[]
 
   shop Shop @relation(fields: [shopId], references: [id])
 

@@ -37,6 +37,7 @@ export const getServiceOptions = async (
   serviceId: string,
   shopSlug: string
 ) => {
+  console.log(shopSlug);
   const shop = await db.shop.findUnique({
     where: {
       slug: shopSlug,

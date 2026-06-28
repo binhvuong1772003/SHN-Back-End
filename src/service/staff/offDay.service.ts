@@ -17,7 +17,7 @@ export const requestOffDayService = async (
     where: { id: staffId },
     include: {
       user: {
-        select: { name: true },
+        select: { name: true, id: true },
       },
     },
   });
@@ -36,15 +36,27 @@ export const requestOffDayService = async (
   const dateMessage = offDay.offDateEnd
     ? `từ ${offDay.offDate.toLocaleDateString()} đến ${offDay.offDateEnd.toLocaleDateString()}`
     : `ngày ${offDay.offDate.toLocaleDateString()}`;
-  const rooms = managers.map((m) => m.id);
-  console.log('🔔 Emitting to rooms:', rooms);
   console.log('🔌 Connected sockets:', getIO().sockets.adapter.rooms);
-
+  const notifications = await Promise.all(
+    managers.map((m) =>
+      db.notification.create({
+        data: {
+          title: 'Yêu cầu nghỉ',
+          content: `${staff?.user.name} xin nghỉ ${dateMessage}`,
+          type: 'OFF_DAY_REQUEST',
+          channel: 'PUSH',
+          shopId: shop.id,
+          userId: m.userId,
+        },
+      })
+    )
+  );
   getIO()
-    .to(managers.map((m) => m.id))
+    .to(`shop:${shop.id}`)
     .emit('off_day_request', {
       offDayId: offDay.id,
       message: `${staff?.user.name} xin nghỉ ${dateMessage}`,
+      notificationId: notifications[0].id,
     });
   return offDay;
 };
@@ -60,7 +72,12 @@ export const responseOffDayService = async (
     data.status === 'APPROVED'
       ? 'Đơn xin nghỉ được duyệt'
       : `Đơn xin nghỉ bị từ chối. Lí do: ${data.rejectReason}`;
-  getIO().to(result.shopStaffId).emit('off_day_response', {
+  const staffInfo = await db.shopStaff.findUnique({
+    where: { id: result.shopStaffId },
+    select: { userId: true },
+  });
+
+  getIO().to(staffInfo!.userId).emit('off_day_response', {
     offDayId: result.id,
     status: data.status,
     message,

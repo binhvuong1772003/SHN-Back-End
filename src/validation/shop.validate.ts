@@ -29,7 +29,7 @@ const shopBaseSchema = z.object({
     .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Giờ đóng cửa không hợp lệ (HH:mm)')
     .default('20:00'),
   workDays: z
-    .array(z.number().int().min(1).max(7))
+    .array(z.coerce.number().int().min(1).max(7))
     .min(1, 'Phải có ít nhất 1 ngày làm việc')
     .default([1, 2, 3, 4, 5, 6]),
   timezone: z.string().default('Asia/Ho_Chi_Minh'),

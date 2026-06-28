@@ -1,7 +1,6 @@
 import { db } from '@/db/prisma';
 import { ApiError } from '@/utils/ApiError';
 import {
-  createServiceSchema,
   CreateServiceInput,
   UpdateServiceInput,
 } from '@/validation/service.validate';

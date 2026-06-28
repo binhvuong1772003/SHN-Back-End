@@ -53,6 +53,7 @@ export const updateShopController = async (
   next: NextFunction
 ) => {
   try {
+    console.log(req.body);
     const shop = await updateShopService(
       req.params.shopSlug as string,
       req.body
