@@ -1,19 +1,19 @@
-import { db } from '@/db/prisma';
-import { ApiError } from '@/utils/ApiError';
+import { db } from "@/db/prisma";
+import { ApiError } from "@/utils/ApiError";
 import type {
   CreateShopInput,
   UpdateShopInput,
-} from '@/validation/shop.validate';
-import { uploadToCloudinary, deleteFromCloudinary } from '@/utils/cloudinary';
+} from "@/validation/shop.validate";
+import { uploadToCloudinary, deleteFromCloudinary } from "@/utils/cloudinary";
 export const createShopService = async (
   data: CreateShopInput,
-  ownerId: string
+  ownerId: string,
 ) => {
-  if (!ownerId) throw new ApiError(401, 'Unauthorized');
+  if (!ownerId) throw new ApiError(401, "Unauthorized");
   const existing = await db.shop.findUnique({
     where: { slug: data.slug },
   });
-  if (existing) throw new ApiError(400, 'Shop đã tồn tại');
+  if (existing) throw new ApiError(400, "Shop đã tồn tại");
   const shop = await db.shop.create({
     data: {
       ...data,
@@ -21,31 +21,31 @@ export const createShopService = async (
       staffMembers: {
         create: {
           userId: ownerId,
-          role: 'OWNER',
+          role: "OWNER",
         },
       },
     },
   });
   await db.user.update({
     where: { id: ownerId },
-    data: { role: 'SHOP_MEMBER' },
+    data: { role: "SHOP_MEMBER" },
   });
   return shop;
 };
 export const getListShopService = async (ownerId: string) => {
-  if (!ownerId) throw new ApiError(401, 'Unauthorized');
+  if (!ownerId) throw new ApiError(401, "Unauthorized");
   return db.shop.findMany({
     where: { ownerId },
   });
 };
 export const updateShopService = async (
   shopSlug: string,
-  data: UpdateShopInput
+  data: UpdateShopInput,
 ) => {
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
-  if (!shop) throw new ApiError(404, 'Shop not found');
+  if (!shop) throw new ApiError(404, "Shop not found");
   return db.shop.update({
     where: { slug: shopSlug },
     data,
@@ -54,13 +54,13 @@ export const updateShopService = async (
 export const uploadShopLogoService = async (
   file: Express.Multer.File,
   folder: string,
-  shopSlug: string
+  shopSlug: string,
 ) => {
-  if (!file) throw new ApiError(400, 'File not found');
+  if (!file) throw new ApiError(400, "File not found");
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
-  if (!shop) throw new ApiError(404, 'Shop not found');
+  if (!shop) throw new ApiError(404, "Shop not found");
   if (shop.logoPublicId) await deleteFromCloudinary(shop.logoPublicId);
   const result = await uploadToCloudinary(file, folder, `${shopSlug}_logo`);
   return await db.shop.update({
@@ -74,13 +74,13 @@ export const uploadShopLogoService = async (
 export const uploadShopBannerService = async (
   file: Express.Multer.File,
   folder: string,
-  shopSlug: string
+  shopSlug: string,
 ) => {
-  if (!file) throw new ApiError(400, 'File not found');
+  if (!file) throw new ApiError(400, "File not found");
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
-  if (!shop) throw new ApiError(404, 'Shop not found');
+  if (!shop) throw new ApiError(404, "Shop not found");
   if (shop.coverPublicId) await deleteFromCloudinary(shop.coverPublicId);
   const result = await uploadToCloudinary(file, folder, `${shopSlug}_logo`);
   return await db.shop.update({

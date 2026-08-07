@@ -1,29 +1,35 @@
-import { Request, Response, NextFunction } from 'express';
-import { ApiError } from '@/utils/ApiError';
-import { db } from '@/db/prisma';
-import { ShopRole } from '@prisma/client';
+import { Request, Response, NextFunction } from "express";
+import { ApiError } from "@/utils/ApiError";
+import { db } from "@/db/prisma";
+import { ShopRole } from "@prisma/client";
 
 export const requireShopAccess =
-  (minRole: ShopRole = 'STAFF') =>
+  (minRole: ShopRole = "STAFF") =>
   async (req: Request, res: Response, next: NextFunction) => {
+    console.log("SHOP ACCESS:", {
+      params: req.params,
+      shopSlug: req.params.shopSlug,
+      userId: req.user?.userId,
+      userRole: req.user?.role,
+    });
+    console.log(req.user?.userId);
     try {
       const shopSlug = req.params.shopSlug as string;
       const userId = req.user?.userId;
       const userRole = req.user?.role;
-
-      if (!userId) throw new ApiError(401, 'Unauthorized');
-
+      console.log(userId);
+      if (!userId) throw new ApiError(401, "Unauthorized");
       // SUPER_ADMIN - query DB verify
-      if (userRole === 'SUPER_ADMIN') {
+      if (userRole === "SUPER_ADMIN") {
         const user = await db.user.findUnique({
           where: { id: userId, isActive: true },
         });
-        if (!user) throw new ApiError(403, 'Forbidden');
+        if (!user) throw new ApiError(403, "Forbidden");
         return next();
       }
 
       // SHOP_MEMBER - check ShopRole trong shop cụ thể
-      if (userRole === 'SHOP_MEMBER') {
+      if (userRole === "SHOP_MEMBER") {
         const shopStaff = await db.shopStaff.findFirst({
           where: {
             userId,
@@ -35,7 +41,7 @@ export const requireShopAccess =
           },
         });
 
-        if (!shopStaff) throw new ApiError(403, 'Forbidden');
+        if (!shopStaff) throw new ApiError(403, "Forbidden");
 
         // Check đủ quyền không
         const roleLevel: Record<ShopRole, number> = {
@@ -45,7 +51,7 @@ export const requireShopAccess =
         };
 
         if (roleLevel[shopStaff.role] < roleLevel[minRole]) {
-          throw new ApiError(403, 'Không đủ quyền');
+          throw new ApiError(403, "Không đủ quyền");
         }
 
         req.shop = shopStaff.shop;
@@ -53,7 +59,7 @@ export const requireShopAccess =
         return next();
       }
 
-      throw new ApiError(403, 'Forbidden');
+      throw new ApiError(403, "Forbidden");
     } catch (err) {
       next(err);
     }

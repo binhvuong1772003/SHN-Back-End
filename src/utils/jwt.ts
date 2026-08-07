@@ -1,7 +1,7 @@
-import jwt, { SignOptions } from 'jsonwebtoken';
-import { jwtConfig } from '@/config/jwt';
-import { UserRole } from '@prisma/client';
-import crypto from 'crypto';
+import jwt, { SignOptions } from "jsonwebtoken";
+import { jwtConfig } from "@/config/jwt";
+import { UserRole } from "@prisma/client";
+import crypto from "crypto";
 
 /**
  * ==============================
@@ -52,12 +52,12 @@ export const verifyRefreshToken = (token: string): RefreshTokenPayload => {
 // ─── Generate opaque refresh token (random) ────────────────
 // Dùng cách này thay vì JWT để dễ revoke
 export const generateOpaqueToken = (): string => {
-  return crypto.randomBytes(64).toString('hex');
+  return crypto.randomBytes(64).toString("hex");
 };
 
 // ─── Hash token để lưu DB (không lưu plaintext) ────────────
 export const hashToken = (token: string): string => {
-  return crypto.createHash('sha256').update(token).digest('hex');
+  return crypto.createHash("sha256").update(token).digest("hex");
 };
 // ─── Tính expiresAt từ string (e.g. "30d") ─────────────────
 export const getExpiresAt = (duration: string): Date => {
