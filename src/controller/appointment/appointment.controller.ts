@@ -1,17 +1,19 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from "express";
 import {
   createAppointment,
   getAppointmentsByShopId,
   getAppointmentsByDay,
   changeAppointmentStatus,
-} from '@/service/appointment/appointment.service';
-import { CreateAppointmentInput } from '@/validation/appointment';
-import dayjs from 'dayjs';
+  markAllAppointmentsAsDone,
+  getIncomeByDayWeekly,
+} from "@/service/appointment/appointment.service";
+import { CreateAppointmentInput } from "@/validation/appointment";
+import dayjs from "dayjs";
 
 export const createAppointmentController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const shopSlug = req.params.shopSlug as string;
@@ -23,7 +25,7 @@ export const createAppointmentController = async (
     res.status(201).json({
       success: true,
       data: appointment,
-      message: 'Đặt lịch thành công',
+      message: "Đặt lịch thành công",
     });
   } catch (error) {
     next(error);
@@ -32,7 +34,7 @@ export const createAppointmentController = async (
 export const getAppointmentsByShopIdController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const shopSlug = req.params.shopSlug as string;
@@ -48,13 +50,12 @@ export const getAppointmentsByShopIdController = async (
 export const getAppointmentsByDayController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const shopSlug = req.params.shopSlug as string;
     const dateStr = req.query.date as string;
-    const date = dayjs(dateStr).startOf('day').toDate();
-    const appointments = await getAppointmentsByDay(shopSlug, date);
+    const appointments = await getAppointmentsByDay(shopSlug, dateStr);
     res.status(200).json({
       success: true,
       data: appointments,
@@ -66,7 +67,7 @@ export const getAppointmentsByDayController = async (
 export const changeAppointmentStatusController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const shopSlug = req.params.shopSlug as string;
@@ -75,11 +76,44 @@ export const changeAppointmentStatusController = async (
     const appointment = await changeAppointmentStatus(
       shopSlug,
       appointmentId,
-      status
+      status,
     );
     res.status(200).json({
       success: true,
       data: appointment,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+export const markAllAppointmentsAsDoneController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const shopSlug = req.params.shopSlug as string;
+    const result = await markAllAppointmentsAsDone(shopSlug);
+    res.status(200).json({
+      success: true,
+      data: result,
+      message: "Đã cập nhật tất cả lịch hẹn thành DONE",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+export const getIncomeByDayWeeklyController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const shopSlug = req.params.shopSlug as string;
+    const income = await getIncomeByDayWeekly(shopSlug);
+    res.status(200).json({
+      success: true,
+      data: income,
     });
   } catch (error) {
     next(error);

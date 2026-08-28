@@ -4,12 +4,13 @@ import {
   getServiceById,
   deleteService,
   updateService,
-} from '@/service/service/service.service';
-import { Request, Response, NextFunction } from 'express';
+  countService,
+} from "@/service/service/service.service";
+import { Request, Response, NextFunction } from "express";
 export const createServiceController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const data = req.body;
@@ -23,7 +24,7 @@ export const createServiceController = async (
 export const getSerivceController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const shopSlug = req.params.shopSlug as string;
@@ -36,7 +37,7 @@ export const getSerivceController = async (
 export const getServiceByIdController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const shopSlug = req.params.shopSlug as string;
@@ -50,7 +51,7 @@ export const getServiceByIdController = async (
 export const deleteServiceController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const shopSlug = req.params.shopSlug as string;
@@ -64,13 +65,33 @@ export const deleteServiceController = async (
 export const updateServiceController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
+    console.log("🔄 Update service request:", {
+      shopSlug: req.params.shopSlug,
+      serviceId: req.params.serviceId,
+      body: req.body,
+    });
     const shopSlug = req.params.shopSlug as string;
     const serviceId = req.params.serviceId as string;
     const data = req.body;
     const result = await updateService(shopSlug, serviceId, data);
+    console.log("✅ Update service success");
+    res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    console.error("❌ Update service error:", error);
+    next(error);
+  }
+};
+export const countServiceController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const shopSlug = req.params.shopSlug as string;
+    const result = await countService(shopSlug);
     res.status(200).json({ success: true, data: result });
   } catch (error) {
     next(error);

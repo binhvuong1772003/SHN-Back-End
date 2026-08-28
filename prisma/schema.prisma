@@ -295,6 +295,7 @@
     salaryConfigs     StaffSalaryConfig[]
     payrolls          Payroll[]
     reviews           Review[]
+businessHours ShopBusinessHour[]
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
@@ -363,6 +364,8 @@
     updatedAt DateTime @updatedAt
 
     @@unique([shopId, userId])
+    @@index([shopId, isActive])
+    @@index([userId])
     @@map("shop_staff")
   }
 
@@ -568,6 +571,8 @@
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
+    @@index([shopId, isActive])
+    @@index([categoryId])
     @@map("services")
   }
 
@@ -701,6 +706,11 @@
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
+    @@index([shopId, date])
+    @@index([customerId])
+    @@index([staffId, date])
+    @@index([status])
+    @@index([createdAt])
     @@map("appointments")
   }
 
@@ -893,3 +903,16 @@
 
     @@map("audit_logs")
   }
+model ShopBusinessHour {
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  shopId    String  @db.ObjectId
+  dayOfWeek Int
+  openTime  String
+  closeTime String
+  isClosed  Boolean @default(false)
+ 
+  shop Shop @relation(fields: [shopId], references: [id])
+ 
+  @@unique([shopId, dayOfWeek])
+  @@map("shop_business_hours")
+}

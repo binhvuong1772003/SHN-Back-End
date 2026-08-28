@@ -1,22 +1,40 @@
-import { db } from '@/db/prisma';
-import { ApiError } from '@/utils/ApiError';
+import { db } from "@/db/prisma";
+import { ApiError } from "@/utils/ApiError";
 import {
   CreateServiceInput,
   UpdateServiceInput,
-} from '@/validation/service.validate';
+} from "@/validation/service.validate";
 export const createService = async (
   data: CreateServiceInput,
-  shopSlug: string
+  shopSlug: string,
 ) => {
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
-  if (!shop) throw new ApiError(404, 'Shop không tồn tại');
+  if (!shop) throw new ApiError(404, "Shop không tồn tại");
+  const { options, ...serviceFields } = data;
   const result = await db.service.create({
     data: {
-      ...data,
+      ...serviceFields,
       shopId: shop.id,
+      options: options?.length
+        ? {
+            create: options.map((option) => ({
+              name: option.name,
+              isRequired: option.isRequired,
+              sortOrder: option.sortOrder,
+              values: {
+                create: option.values.map((v) => ({
+                  name: v.name,
+                  price: v.price,
+                  duration: v.duration,
+                })),
+              },
+            })),
+          }
+        : undefined,
     },
+    include: { options: { include: { values: true } } },
   });
   return result;
 };
@@ -24,7 +42,7 @@ export const getService = async (shopSlug: string) => {
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
-  if (!shop) throw new ApiError(404, 'Shop không tồn tại');
+  if (!shop) throw new ApiError(404, "Shop không tồn tại");
   const result = await db.service.findMany({
     where: {
       shopId: shop.id,
@@ -35,7 +53,7 @@ export const getService = async (shopSlug: string) => {
           values: true,
         },
         orderBy: {
-          sortOrder: 'asc',
+          sortOrder: "asc",
         },
       },
       addons: true,
@@ -47,7 +65,7 @@ export const getServiceById = async (shopSlug: string, serviceId: string) => {
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
-  if (!shop) throw new ApiError(404, 'Shop không tồn tại');
+  if (!shop) throw new ApiError(404, "Shop không tồn tại");
   const result = await db.service.findUnique({
     where: {
       id: serviceId,
@@ -58,14 +76,14 @@ export const getServiceById = async (shopSlug: string, serviceId: string) => {
           values: true,
         },
         orderBy: {
-          sortOrder: 'asc',
+          sortOrder: "asc",
         },
       },
       addons: true,
     },
   });
   if (!result || result.shopId !== shop.id) {
-    throw new ApiError(404, 'Service không tồn tại');
+    throw new ApiError(404, "Service không tồn tại");
   }
   return result;
 };
@@ -73,9 +91,9 @@ export const deleteService = async (shopSlug: string, serviceId: string) => {
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
-  if (!shop) throw new ApiError(404, 'Shop không tồn tại');
+  if (!shop) throw new ApiError(404, "Shop không tồn tại");
   const service = await db.service.findUnique({ where: { id: serviceId } });
-  if (!service) throw new ApiError(404, 'Service không tồn tại');
+  if (!service) throw new ApiError(404, "Service không tồn tại");
   const result = await db.service.delete({
     where: {
       id: serviceId,
@@ -86,14 +104,14 @@ export const deleteService = async (shopSlug: string, serviceId: string) => {
 export const updateService = async (
   shopSlug: string,
   serviceId: string,
-  data: UpdateServiceInput
+  data: UpdateServiceInput,
 ) => {
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
-  if (!shop) throw new ApiError(404, 'Shop không tồn tại');
+  if (!shop) throw new ApiError(404, "Shop không tồn tại");
   const service = await db.service.findUnique({ where: { id: serviceId } });
-  if (!service) throw new ApiError(404, 'Service không tồn tại');
+  if (!service) throw new ApiError(404, "Service không tồn tại");
 
   const {
     options,
@@ -201,11 +219,21 @@ export const updateService = async (
     include: {
       options: {
         include: { values: true },
-        orderBy: { sortOrder: 'asc' },
+        orderBy: { sortOrder: "asc" },
       },
       addons: true,
     },
   });
 
   return result;
+};
+export const countService = async (shopSlug: string) => {
+  const shop = await db.shop.findUnique({
+    where: { slug: shopSlug },
+  });
+  if (!shop) throw new ApiError(404, "Shop không tồn tại");
+  const count = await db.service.count({
+    where: { shopId: shop.id },
+  });
+  return count;
 };

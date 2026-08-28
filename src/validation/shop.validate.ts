@@ -1,38 +1,38 @@
 // src/validation/shop.validate.ts
-import { z } from 'zod';
+import { z } from "zod";
 
 const shopBaseSchema = z.object({
-  name: z.string().min(2, 'Tên shop tối thiểu 2 ký tự').max(100),
+  name: z.string().min(2, "Tên shop tối thiểu 2 ký tự").max(100),
   slug: z
     .string()
     .min(2)
     .max(100)
-    .regex(/^[a-z0-9-]+$/, 'Slug chỉ chứa chữ thường, số và dấu gạch ngang'),
-  type: z.enum(['NAIL', 'SPA', 'HAIR', 'COMBO']).default('NAIL'),
+    .regex(/^[a-z0-9-]+$/, "Slug chỉ chứa chữ thường, số và dấu gạch ngang"),
+  type: z.enum(["NAIL", "SPA", "HAIR", "COMBO"]).default("NAIL"),
   phone: z
     .string()
-    .regex(/^(0|\+84)[0-9]{9}$/, 'Số điện thoại không hợp lệ')
+    .regex(/^(0|\+84)[0-9]{9}$/, "Số điện thoại không hợp lệ")
     .optional(),
-  email: z.string().email('Email không hợp lệ').optional(),
+  email: z.string().email("Email không hợp lệ").optional(),
   address: z.string().max(200).optional(),
   city: z.string().max(100).optional(),
   district: z.string().max(100).optional(),
-  logoUrl: z.string().url('URL không hợp lệ').optional(),
-  coverUrl: z.string().url('URL không hợp lệ').optional(),
+  logoUrl: z.string().url("URL không hợp lệ").optional(),
+  coverUrl: z.string().url("URL không hợp lệ").optional(),
   description: z.string().max(1000).optional(),
   openTime: z
     .string()
-    .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Giờ mở cửa không hợp lệ (HH:mm)')
-    .default('08:00'),
+    .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Giờ mở cửa không hợp lệ (HH:mm)")
+    .default("08:00"),
   closeTime: z
     .string()
-    .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Giờ đóng cửa không hợp lệ (HH:mm)')
-    .default('20:00'),
+    .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Giờ đóng cửa không hợp lệ (HH:mm)")
+    .default("20:00"),
   workDays: z
     .array(z.coerce.number().int().min(1).max(7))
-    .min(1, 'Phải có ít nhất 1 ngày làm việc')
+    .min(1, "Phải có ít nhất 1 ngày làm việc")
     .default([1, 2, 3, 4, 5, 6]),
-  timezone: z.string().default('Asia/Ho_Chi_Minh'),
+  timezone: z.string().default("Asia/Ho_Chi_Minh"),
   settings: z
     .object({
       autoConfirm: z.boolean().default(false),
@@ -51,7 +51,7 @@ const shopBaseSchema = z.object({
 // ✅ createShop - refine sau khi đã có base
 export const createShopSchema = shopBaseSchema.refine(
   (data) => data.openTime < data.closeTime,
-  { message: 'Giờ mở cửa phải trước giờ đóng cửa', path: ['closeTime'] }
+  { message: "Giờ mở cửa phải trước giờ đóng cửa", path: ["closeTime"] },
 );
 
 // ✅ updateShop - partial trên base, refine riêng
@@ -65,8 +65,38 @@ export const updateShopSchema = shopBaseSchema
       }
       return true; // nếu không gửi cả 2 thì không cần check
     },
-    { message: 'Giờ mở cửa phải trước giờ đóng cửa', path: ['closeTime'] }
+    { message: "Giờ mở cửa phải trước giờ đóng cửa", path: ["closeTime"] },
+  );
+
+// ✅ business hours - lịch làm việc theo từng ngày trong tuần (0 = Chủ nhật ... 6 = Thứ 7)
+const businessHourItemSchema = z
+  .object({
+    dayOfWeek: z.coerce.number().int().min(0).max(6),
+    openTime: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Giờ mở cửa không hợp lệ (HH:mm)"),
+    closeTime: z
+      .string()
+      .regex(
+        /^([01]\d|2[0-3]):([0-5]\d)$/,
+        "Giờ đóng cửa không hợp lệ (HH:mm)",
+      ),
+    isClosed: z.boolean().default(false),
+  })
+  .refine((data) => data.isClosed || data.openTime < data.closeTime, {
+    message: "Giờ mở cửa phải trước giờ đóng cửa",
+    path: ["closeTime"],
+  });
+
+export const businessHoursSchema = z
+  .array(businessHourItemSchema)
+  .min(1, "Phải có ít nhất 1 ngày")
+  .max(7, "Tối đa 7 ngày trong tuần")
+  .refine(
+    (days) => new Set(days.map((d) => d.dayOfWeek)).size === days.length,
+    { message: "Mỗi ngày trong tuần chỉ được khai báo 1 lần" },
   );
 
 export type CreateShopInput = z.infer<typeof createShopSchema>;
 export type UpdateShopInput = z.infer<typeof updateShopSchema>;
+export type BusinessHoursInput = z.infer<typeof businessHoursSchema>;

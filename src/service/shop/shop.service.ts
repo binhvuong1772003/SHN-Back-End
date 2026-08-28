@@ -3,6 +3,7 @@ import { ApiError } from "@/utils/ApiError";
 import type {
   CreateShopInput,
   UpdateShopInput,
+  BusinessHoursInput,
 } from "@/validation/shop.validate";
 import { uploadToCloudinary, deleteFromCloudinary } from "@/utils/cloudinary";
 export const createShopService = async (
@@ -89,5 +90,43 @@ export const uploadShopBannerService = async (
       coverUrl: result.secure_url,
       coverPublicId: result.public_id,
     },
+  });
+};
+
+export const getBusinessHoursService = async (shopSlug: string) => {
+  const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
+  if (!shop) throw new ApiError(404, "Shop not found");
+  return db.shopBusinessHour.findMany({
+    where: { shopId: shop.id },
+    orderBy: { dayOfWeek: "asc" },
+  });
+};
+
+export const updateBusinessHoursService = async (
+  shopSlug: string,
+  data: BusinessHoursInput,
+) => {
+  const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
+  if (!shop) throw new ApiError(404, "Shop not found");
+
+  await db.$transaction(
+    data.map((day) =>
+      db.shopBusinessHour.upsert({
+        where: {
+          shopId_dayOfWeek: { shopId: shop.id, dayOfWeek: day.dayOfWeek },
+        },
+        create: { ...day, shopId: shop.id },
+        update: {
+          openTime: day.openTime,
+          closeTime: day.closeTime,
+          isClosed: day.isClosed,
+        },
+      }),
+    ),
+  );
+
+  return db.shopBusinessHour.findMany({
+    where: { shopId: shop.id },
+    orderBy: { dayOfWeek: "asc" },
   });
 };

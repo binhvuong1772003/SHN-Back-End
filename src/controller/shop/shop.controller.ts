@@ -1,17 +1,22 @@
-import { Request, Response, NextFunction } from 'express';
-import { CreateShopInput } from '@/validation/shop.validate';
+import { Request, Response, NextFunction } from "express";
+import {
+  CreateShopInput,
+  BusinessHoursInput,
+} from "@/validation/shop.validate";
 import {
   createShopService,
   updateShopService,
   uploadShopLogoService,
   getListShopService,
   uploadShopBannerService,
-} from '@/service/shop/shop.service';
-import { CLOUDINARY_FOLDERS } from '@/utils/cloudinary';
+  getBusinessHoursService,
+  updateBusinessHoursService,
+} from "@/service/shop/shop.service";
+import { CLOUDINARY_FOLDERS } from "@/utils/cloudinary";
 export const createShopController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const input = req.body as CreateShopInput;
@@ -25,7 +30,7 @@ export const createShopController = async (
 export const getListShopController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const ownerId = req.user?.userId as string;
@@ -38,7 +43,7 @@ export const getListShopController = async (
 export const getShopDetailController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const shopSlug = req.params.shopSlug as string;
@@ -50,13 +55,13 @@ export const getShopDetailController = async (
 export const updateShopController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     console.log(req.body);
     const shop = await updateShopService(
       req.params.shopSlug as string,
-      req.body
+      req.body,
     );
     res.status(200).json({ success: true, data: shop });
   } catch (error) {
@@ -66,13 +71,13 @@ export const updateShopController = async (
 export const uploadShopLogoController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const shop = await uploadShopLogoService(
       req.file as Express.Multer.File,
       CLOUDINARY_FOLDERS.SHOP_LOGO,
-      req.params.shopSlug as string
+      req.params.shopSlug as string,
     );
     res.status(200).json({ success: true, data: shop });
   } catch (error) {
@@ -82,15 +87,44 @@ export const uploadShopLogoController = async (
 export const uploadShopBannerController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const shop = await uploadShopBannerService(
       req.file as Express.Multer.File,
       CLOUDINARY_FOLDERS.SHOP_COVER,
-      req.params.shopSlug as string
+      req.params.shopSlug as string,
     );
     res.status(200).json({ success: true, data: shop });
+  } catch (error) {
+    next(error);
+  }
+};
+export const getBusinessHoursController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const businessHours = await getBusinessHoursService(
+      req.params.shopSlug as string,
+    );
+    res.status(200).json({ success: true, data: businessHours });
+  } catch (error) {
+    next(error);
+  }
+};
+export const updateBusinessHoursController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const businessHours = await updateBusinessHoursService(
+      req.params.shopSlug as string,
+      req.body as BusinessHoursInput,
+    );
+    res.status(200).json({ success: true, data: businessHours });
   } catch (error) {
     next(error);
   }

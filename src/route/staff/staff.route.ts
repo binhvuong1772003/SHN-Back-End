@@ -1,37 +1,42 @@
-import { authenticate } from '@/middleware/authenticate.middleware';
-import { requireShopAccess } from '@/middleware/shop.middleware';
-import { Router } from 'express';
+import { authenticate } from "@/middleware/authenticate.middleware";
+import { requireShopAccess } from "@/middleware/shop.middleware";
+import { Router } from "express";
 import {
   inviteStaffController,
   acceptInviteController,
   updateStaffInfoController,
   updateStaffScheduleController,
-} from '@/controller/staff/staff.controller';
+  getStaffListByShopController,
+} from "@/controller/staff/staff.controller";
 import {
   inviteStaffSchema,
   updatedStaffInfo,
   updateStaffSchedule,
-} from '@/validation/staff.validate';
-import { validate } from '@/middleware/validation.middleware';
-import offDayrouter from './offDay.route';
+} from "@/validation/staff.validate";
+import { validate } from "@/middleware/validation.middleware";
+import offDayrouter from "./offDay.route";
 const staffRouter = Router({ mergeParams: true });
 staffRouter.use(authenticate);
+// staffRouter.get("/schedule", () => {});
+staffRouter.get("/", requireShopAccess("STAFF"), getStaffListByShopController);
 staffRouter.post(
-  '/invite',
-  requireShopAccess('MANAGER'),
+  "/invite",
+  requireShopAccess("OWNER"),
   validate({ body: inviteStaffSchema }),
-  inviteStaffController
+  inviteStaffController,
 );
-staffRouter.post('/invite/accept', acceptInviteController);
+staffRouter.post("/invite/accept", acceptInviteController);
 staffRouter.patch(
-  '/:staffId/info',
+  "/:staffId/info",
+  requireShopAccess("MANAGER"),
   validate({ body: updatedStaffInfo }),
-  updateStaffInfoController
+  updateStaffInfoController,
 );
 staffRouter.put(
-  '/:staffId/schedule',
+  "/:staffId/schedule",
+  requireShopAccess("MANAGER"),
   validate({ body: updateStaffSchedule }),
-  updateStaffScheduleController
+  updateStaffScheduleController,
 );
 staffRouter.use(offDayrouter);
 export default staffRouter;

@@ -1,8 +1,9 @@
-import { v2 as cloudinary } from 'cloudinary';
+import { v2 as cloudinary } from "cloudinary";
 
 export const CLOUDINARY_FOLDERS = {
-  SHOP_LOGO: 'shn/shops/logo', // ← thêm
-  SHOP_COVER: 'shn/shops/cover', // ← thêm
+  SHOP_LOGO: "shn/shops/logo",
+  SHOP_COVER: "shn/shops/cover",
+  SERVICE_IMAGE: "shn/services/images",
 };
 
 cloudinary.config({
@@ -15,9 +16,9 @@ cloudinary.config({
 export const uploadToCloudinary = async (
   file: Express.Multer.File,
   folder: string,
-  publicId?: string
+  publicId?: string,
 ) => {
-  const base64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+  const base64 = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
   return await cloudinary.uploader.upload(base64, {
     folder,
     public_id: publicId,

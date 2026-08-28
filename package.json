@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "nodemon --exec tsx src/server.ts",
+    "dev:tsx": "tsx watch --clear-screen=false src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "prisma:generate": "npx prisma generate",
@@ -19,6 +20,7 @@
     "axios": "^1.13.5",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
+    "bson": "^7.3.2",
     "cloudinary": "^1.41.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -51,6 +53,7 @@
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^7.0.11",
     "@types/qrcode": "^1.5.6",
+    "nodemon": "^3.1.9",
     "prisma": "^6.7.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"

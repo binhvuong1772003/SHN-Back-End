@@ -1,8 +1,8 @@
 // validation/service.validate.ts
-import { z } from 'zod';
+import { z } from "zod";
 export const createCategorySchema = z.object({
-  name: z.string().min(1, 'Tên category không được để trống').max(100),
-  imageUrl: z.string().url('URL không hợp lệ').optional(),
+  name: z.string().min(1, "Tên category không được để trống").max(100),
+  imageUrl: z.string().url("URL không hợp lệ").optional(),
 });
 // ============================================================
 // OPTION VALUE
@@ -29,6 +29,16 @@ export const createServiceSchema = z.object({
   imageUrl: z.string().url().optional(),
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().default(0),
+  options: z
+    .array(
+      z.object({
+        name: z.string().min(1).max(100),
+        isRequired: z.boolean().default(true),
+        sortOrder: z.number().int().default(0),
+        values: z.array(optionValueSchema).min(1),
+      }),
+    )
+    .optional(),
 });
 
 export const updateServiceSchema = z.object({
@@ -48,7 +58,7 @@ export const updateServiceSchema = z.object({
         isRequired: z.boolean().default(true),
         sortOrder: z.number().int().default(0),
         values: z.array(optionValueSchema).min(1),
-      })
+      }),
     )
     .optional(),
   addons: z
@@ -60,7 +70,7 @@ export const updateServiceSchema = z.object({
         duration: z.number().int().min(0).optional(),
         isActive: z.boolean().optional(),
         sortOrder: z.number().int().optional(),
-      })
+      }),
     )
     .optional(),
   deleteOptionIds: z.array(z.string()).optional(),
