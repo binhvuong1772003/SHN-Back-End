@@ -16,15 +16,19 @@ export const requireShopAccess =
     try {
       const shopSlug = req.params.shopSlug as string;
       const userId = req.user?.userId;
-      const userRole = req.user?.role;
+      // Read the current role from the database. The role embedded in an old
+      // access token can be stale (for example immediately after creating a
+      // shop, when the user is promoted to SHOP_MEMBER).
+      const user = await db.user.findUnique({
+        where: { id: userId, isActive: true },
+        select: { role: true },
+      });
+      if (!user) throw new ApiError(403, "Forbidden");
+      const userRole = user.role;
       console.log(userId);
       if (!userId) throw new ApiError(401, "Unauthorized");
       // SUPER_ADMIN - query DB verify
       if (userRole === "SUPER_ADMIN") {
-        const user = await db.user.findUnique({
-          where: { id: userId, isActive: true },
-        });
-        if (!user) throw new ApiError(403, "Forbidden");
         return next();
       }
 

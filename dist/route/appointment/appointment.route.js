@@ -1,0 +1,18 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const authenticate_middleware_1 = require("@/middleware/authenticate.middleware");
+const validation_middleware_1 = require("@/middleware/validation.middleware");
+const appointment_1 = require("@/validation/appointment");
+const shop_middleware_1 = require("@/middleware/shop.middleware");
+const appointment_controller_1 = require("@/controller/appointment/appointment.controller");
+const appointmentRouter = (0, express_1.Router)({ mergeParams: true });
+appointmentRouter.use(authenticate_middleware_1.authenticate);
+appointmentRouter.use((0, shop_middleware_1.requireShopAccess)("STAFF"));
+appointmentRouter.post("/", (0, validation_middleware_1.validate)(appointment_1.createAppointmentSchema), appointment_controller_1.createAppointmentController);
+appointmentRouter.get("/", appointment_controller_1.getAppointmentsByShopIdController);
+appointmentRouter.get("/day", appointment_controller_1.getAppointmentsByDayController);
+appointmentRouter.put("/:appointmentId", appointment_controller_1.changeAppointmentStatusController);
+appointmentRouter.get("/income/weekly", appointment_controller_1.getIncomeByDayWeeklyController);
+appointmentRouter.put("/all/done", appointment_controller_1.markAllAppointmentsAsDoneController);
+exports.default = appointmentRouter;

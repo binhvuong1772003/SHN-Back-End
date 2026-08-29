@@ -14,6 +14,7 @@ import {
 import { validate } from '@/middleware/validation.middleware';
 const offDayRouter = Router({ mergeParams: true });
 offDayRouter.use(authenticate);
+offDayRouter.use(requireShopAccess("STAFF"));
 offDayRouter.post(
   '/:staffId/off-days',
   validate({ body: requestOffDaySchema }),

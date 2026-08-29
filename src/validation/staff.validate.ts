@@ -2,7 +2,8 @@ import { z } from "zod";
 
 export const inviteStaffSchema = z.object({
   invitedEmail: z.string().email("Email không hợp lệ"),
-  role: z.enum(["OWNER", "MANAGER", "STAFF"]).default("STAFF"),
+  // Owners are created with the shop and are not invited through this form.
+  role: z.enum(["MANAGER", "STAFF"]).default("STAFF"),
 });
 
 export const updatedStaffInfo = z

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { requireShopAccess } from "@/middleware/shop.middleware";
 import {
   getAvailableSlotsController,
   getAllSlotsController,
@@ -8,6 +9,7 @@ import {
 } from "@/controller/calendar/calendar.controller";
 
 const calendarRouter = Router({ mergeParams: true });
+calendarRouter.use(requireShopAccess("STAFF"));
 
 calendarRouter.get("/slots", getAvailableSlotsController);
 calendarRouter.get("/all-slots", getAllSlotsController);

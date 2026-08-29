@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const shop_middleware_1 = require("@/middleware/shop.middleware");
+const calendar_controller_1 = require("@/controller/calendar/calendar.controller");
+const calendarRouter = (0, express_1.Router)({ mergeParams: true });
+calendarRouter.use((0, shop_middleware_1.requireShopAccess)("STAFF"));
+calendarRouter.get("/slots", calendar_controller_1.getAvailableSlotsController);
+calendarRouter.get("/all-slots", calendar_controller_1.getAllSlotsController);
+calendarRouter.get("/time-slots", calendar_controller_1.getTimeSlotsController);
+calendarRouter.get("/appointments", calendar_controller_1.getAppointmentsWithSlotsController);
+calendarRouter.get("/month", calendar_controller_1.getMonthAvailabilityController);
+exports.default = calendarRouter;

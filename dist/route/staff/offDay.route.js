@@ -1,0 +1,16 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const authenticate_middleware_1 = require("@/middleware/authenticate.middleware");
+const shop_middleware_1 = require("@/middleware/shop.middleware");
+const express_1 = require("express");
+const offDay_controller_1 = require("@/controller/staff/offDay.controller");
+const staff_validate_1 = require("@/validation/staff.validate");
+const validation_middleware_1 = require("@/middleware/validation.middleware");
+const offDayRouter = (0, express_1.Router)({ mergeParams: true });
+offDayRouter.use(authenticate_middleware_1.authenticate);
+offDayRouter.use((0, shop_middleware_1.requireShopAccess)("STAFF"));
+offDayRouter.post('/:staffId/off-days', (0, validation_middleware_1.validate)({ body: staff_validate_1.requestOffDaySchema }), offDay_controller_1.requestOffDayController);
+offDayRouter.get('/off-days', offDay_controller_1.getListOffDayController);
+offDayRouter.get('/off-days/:offDayId', offDay_controller_1.getDetailDayOffController);
+offDayRouter.patch('/off-days/:offDayId', offDay_controller_1.responseOffDayController);
+exports.default = offDayRouter;

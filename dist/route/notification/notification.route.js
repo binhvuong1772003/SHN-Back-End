@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const authenticate_middleware_1 = require("@/middleware/authenticate.middleware");
+const shop_middleware_1 = require("@/middleware/shop.middleware");
+const nofitication_controller_1 = require("@/controller/notification/nofitication.controller");
+const notiRouter = (0, express_1.Router)({ mergeParams: true });
+notiRouter.use(authenticate_middleware_1.authenticate, (0, shop_middleware_1.requireShopAccess)("STAFF"));
+notiRouter.get('/', nofitication_controller_1.getListNotificationController);
+notiRouter.patch('/:id', nofitication_controller_1.markReadController);
+notiRouter.delete('/:id', nofitication_controller_1.deleteNotificationController);
+exports.default = notiRouter;

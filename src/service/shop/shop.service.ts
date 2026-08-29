@@ -36,7 +36,12 @@ export const createShopService = async (
 export const getListShopService = async (ownerId: string) => {
   if (!ownerId) throw new ApiError(401, "Unauthorized");
   return db.shop.findMany({
-    where: { ownerId },
+    where: {
+      OR: [
+        { ownerId },
+        { staffMembers: { some: { userId: ownerId, isActive: true } } },
+      ],
+    },
   });
 };
 export const updateShopService = async (

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authenticate } from "@/middleware/authenticate.middleware";
 import { validate } from "@/middleware/validation.middleware";
 import { createAppointmentSchema } from "@/validation/appointment";
+import { requireShopAccess } from "@/middleware/shop.middleware";
 import {
   createAppointmentController,
   getAppointmentsByShopIdController,
@@ -14,6 +15,7 @@ import {
 const appointmentRouter = Router({ mergeParams: true });
 
 appointmentRouter.use(authenticate);
+appointmentRouter.use(requireShopAccess("STAFF"));
 
 appointmentRouter.post(
   "/",

@@ -23,6 +23,7 @@ import { validateMultipartBody } from "@/middleware/validateMultipartBody.middle
 import { uploadServiceImage } from "@/middleware/uploadImageToCloudinary.middleware";
 
 const serviceRouter = Router({ mergeParams: true });
+serviceRouter.use(requireShopAccess());
 serviceRouter.post(
   "/",
   requireShopAccess("OWNER"),

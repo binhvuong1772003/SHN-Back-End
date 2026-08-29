@@ -1,0 +1,22 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const authenticate_middleware_1 = require("@/middleware/authenticate.middleware");
+const shop_middleware_1 = require("@/middleware/shop.middleware");
+const express_1 = require("express");
+const staff_controller_1 = require("@/controller/staff/staff.controller");
+const staff_validate_1 = require("@/validation/staff.validate");
+const validation_middleware_1 = require("@/middleware/validation.middleware");
+const offDay_route_1 = __importDefault(require("./offDay.route"));
+const staffRouter = (0, express_1.Router)({ mergeParams: true });
+staffRouter.use(authenticate_middleware_1.authenticate);
+// staffRouter.get("/schedule", () => {});
+staffRouter.get("/", (0, shop_middleware_1.requireShopAccess)("STAFF"), staff_controller_1.getStaffListByShopController);
+staffRouter.post("/invite", (0, shop_middleware_1.requireShopAccess)("MANAGER"), (0, validation_middleware_1.validate)({ body: staff_validate_1.inviteStaffSchema }), staff_controller_1.inviteStaffController);
+staffRouter.post("/invite/accept", staff_controller_1.acceptInviteController);
+staffRouter.patch("/:staffId/info", (0, shop_middleware_1.requireShopAccess)("MANAGER"), (0, validation_middleware_1.validate)({ body: staff_validate_1.updatedStaffInfo }), staff_controller_1.updateStaffInfoController);
+staffRouter.put("/:staffId/schedule", (0, shop_middleware_1.requireShopAccess)("MANAGER"), (0, validation_middleware_1.validate)({ body: staff_validate_1.updateStaffSchedule }), staff_controller_1.updateStaffScheduleController);
+staffRouter.use(offDay_route_1.default);
+exports.default = staffRouter;

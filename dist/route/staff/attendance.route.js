@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const authenticate_middleware_1 = require("@/middleware/authenticate.middleware");
+const shop_middleware_1 = require("@/middleware/shop.middleware");
+const express_1 = require("express");
+const attendace_controller_1 = require("@/controller/staff/attendace.controller");
+const attandanceRouter = (0, express_1.Router)({ mergeParams: true });
+attandanceRouter.use(authenticate_middleware_1.authenticate);
+attandanceRouter.use((0, shop_middleware_1.requireShopAccess)("STAFF"));
+attandanceRouter.patch('/check-in', attendace_controller_1.checkInController);
+attandanceRouter.get('/qr/check-in', authenticate_middleware_1.authenticate, attendace_controller_1.getCheckInQRController);
+attandanceRouter.get('/qr/check-out', authenticate_middleware_1.authenticate, attendace_controller_1.getCheckOutQRController);
+attandanceRouter.post('/qr-check-in', attendace_controller_1.qrCheckInController);
+attandanceRouter.post('/qr-check-out', attendace_controller_1.qrCheckOutController);
+exports.default = attandanceRouter;

@@ -1,4 +1,7 @@
 import { db } from "@/db/prisma";
+import { redisConnection } from "@/config/redis";
+import { serviceListCacheKey } from "@/cache/cacheKeys";
+import { clearServiceListCache } from "@/cache/cacheInvalidation";
 import { ApiError } from "@/utils/ApiError";
 import {
   CreateServiceInput,
@@ -36,29 +39,91 @@ export const createService = async (
     },
     include: { options: { include: { values: true } } },
   });
+  try { await clearServiceListCache(shopSlug); }
+  catch (error) { console.error("[Redis] service cache invalidation failed:", error); }
   return result;
 };
-export const getService = async (shopSlug: string) => {
+export interface ServiceListQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: "ACTIVE" | "INACTIVE";
+  category?: string;
+  sort?: "RECENT" | "NAME_ASC" | "NAME_DESC" | "PRICE_ASC" | "PRICE_DESC" | "DURATION_ASC" | "DURATION_DESC";
+}
+
+export const getService = async (shopSlug: string, query: ServiceListQuery = {}) => {
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
   if (!shop) throw new ApiError(404, "Shop không tồn tại");
-  const result = await db.service.findMany({
-    where: {
-      shopId: shop.id,
-    },
-    include: {
-      options: {
-        include: {
-          values: true,
+  const cacheKey = serviceListCacheKey(shopSlug, query);
+  try {
+    const cached = await redisConnection.get(cacheKey);
+    if (cached) return JSON.parse(cached);
+  } catch (error) {
+    console.error("[Redis] service cache read failed:", error);
+  }
+  const page = Math.max(1, Number(query.page) || 1);
+  const limit = Math.min(50, Math.max(1, Number(query.limit) || 5));
+  const search = query.search?.trim();
+  const where: any = {
+    shopId: shop.id,
+    ...(query.status ? { isActive: query.status === "ACTIVE" } : {}),
+    ...(query.category ? { categoryId: query.category } : {}),
+    ...(search ? {
+      OR: [
+        { name: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+        { category: { name: { contains: search, mode: "insensitive" } } },
+      ],
+    } : {}),
+  };
+  const orderBy: any = query.sort === "NAME_ASC" ? { name: "asc" }
+    : query.sort === "NAME_DESC" ? { name: "desc" }
+    : query.sort === "PRICE_ASC" ? { basePrice: "asc" }
+    : query.sort === "PRICE_DESC" ? { basePrice: "desc" }
+    : query.sort === "DURATION_ASC" ? { durationMin: "asc" }
+    : query.sort === "DURATION_DESC" ? { durationMin: "desc" }
+    : { createdAt: "desc" };
+
+  const [items, total, allCount, activeCount, inactiveCount, categoryRows] = await Promise.all([
+    db.service.findMany({
+      where,
+      orderBy,
+      skip: (page - 1) * limit,
+      take: limit,
+      include: {
+        category: true,
+        options: {
+          include: { values: true },
+          orderBy: { sortOrder: "asc" },
         },
-        orderBy: {
-          sortOrder: "asc",
-        },
+        addons: true,
       },
-      addons: true,
+    }),
+    db.service.count({ where }),
+    db.service.count({ where: { shopId: shop.id } }),
+    db.service.count({ where: { shopId: shop.id, isActive: true } }),
+    db.service.count({ where: { shopId: shop.id, isActive: false } }),
+    db.service.findMany({ where: { shopId: shop.id }, select: { categoryId: true } }),
+  ]);
+  const totalPages = Math.ceil(total / limit);
+  const result = {
+    items,
+    total,
+    page: totalPages > 0 ? Math.min(page, totalPages) : 1,
+    limit,
+    totalPages,
+    counts: {
+      all: allCount,
+      active: activeCount,
+      inactive: inactiveCount,
+      categories: new Set(categoryRows.map((row) => row.categoryId).filter(Boolean)).size,
     },
-  });
+  };
+  try { await redisConnection.set(cacheKey, JSON.stringify(result), "EX", 3600); }
+  catch (error) { console.error("[Redis] service cache write failed:", error); }
   return result;
 };
 export const getServiceById = async (shopSlug: string, serviceId: string) => {
@@ -99,6 +164,8 @@ export const deleteService = async (shopSlug: string, serviceId: string) => {
       id: serviceId,
     },
   });
+  try { await clearServiceListCache(shopSlug); }
+  catch (error) { console.error("[Redis] service cache invalidation failed:", error); }
   return result;
 };
 export const updateService = async (
@@ -225,6 +292,8 @@ export const updateService = async (
     },
   });
 
+  try { await clearServiceListCache(shopSlug); }
+  catch (error) { console.error("[Redis] service cache invalidation failed:", error); }
   return result;
 };
 export const countService = async (shopSlug: string) => {

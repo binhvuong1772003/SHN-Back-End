@@ -290,7 +290,7 @@ export const getAppointmentsByShopId = async (shopSlug: string) => {
     },
   });
 };
-export const getAppointmentsByDay = async (shopSlug: string, date: string) => {
+export const getAppointmentsByDay = async (shopSlug: string, date: string, staffUserId?: string) => {
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
@@ -300,6 +300,7 @@ export const getAppointmentsByDay = async (shopSlug: string, date: string) => {
     where: {
       shopId: shop.id,
       date: appointmentDate,
+      ...(staffUserId ? { staffId: staffUserId } : {}),
     },
     include: {
       services: {

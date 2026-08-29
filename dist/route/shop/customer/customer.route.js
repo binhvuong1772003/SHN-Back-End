@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const authenticate_middleware_1 = require("@/middleware/authenticate.middleware");
+const customer_controller_1 = require("@/controller/customer/customer.controller");
+const shop_middleware_1 = require("@/middleware/shop.middleware");
+const customerRouter = (0, express_1.Router)({ mergeParams: true });
+customerRouter.use(authenticate_middleware_1.authenticate, (0, shop_middleware_1.requireShopAccess)("STAFF"));
+customerRouter.get("/top", customer_controller_1.getTopCustomerController);
+exports.default = customerRouter;

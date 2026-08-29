@@ -55,7 +55,7 @@ export const getAppointmentsByDayController = async (
   try {
     const shopSlug = req.params.shopSlug as string;
     const dateStr = req.query.date as string;
-    const appointments = await getAppointmentsByDay(shopSlug, dateStr);
+    const appointments = await getAppointmentsByDay(shopSlug, dateStr, req.query.assignedToMe === "true" ? req.user?.userId : undefined);
     res.status(200).json({
       success: true,
       data: appointments,

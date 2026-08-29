@@ -7,6 +7,7 @@ import {
   updateStaffInfoController,
   updateStaffScheduleController,
   getStaffListByShopController,
+  getStaffScheduleController,
 } from "@/controller/staff/staff.controller";
 import {
   inviteStaffSchema,
@@ -17,11 +18,11 @@ import { validate } from "@/middleware/validation.middleware";
 import offDayrouter from "./offDay.route";
 const staffRouter = Router({ mergeParams: true });
 staffRouter.use(authenticate);
-// staffRouter.get("/schedule", () => {});
+staffRouter.get("/:staffId/schedule", requireShopAccess("STAFF"), getStaffScheduleController);
 staffRouter.get("/", requireShopAccess("STAFF"), getStaffListByShopController);
 staffRouter.post(
   "/invite",
-  requireShopAccess("OWNER"),
+  requireShopAccess("MANAGER"),
   validate({ body: inviteStaffSchema }),
   inviteStaffController,
 );

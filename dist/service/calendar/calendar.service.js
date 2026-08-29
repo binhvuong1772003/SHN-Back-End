@@ -1,0 +1,361 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getMonthAvailability = exports.getAppointmentsWithSlots = exports.getTimeSlots = exports.getAllSlots = exports.getAvailableSlots = exports.validateBookingSlot = void 0;
+const prisma_1 = require("@/db/prisma");
+const ApiError_1 = require("@/utils/ApiError");
+const dayjs_1 = __importDefault(require("dayjs"));
+const utc_1 = __importDefault(require("dayjs/plugin/utc"));
+const timezone_1 = __importDefault(require("dayjs/plugin/timezone"));
+dayjs_1.default.extend(utc_1.default);
+dayjs_1.default.extend(timezone_1.default);
+const slot_helper_1 = require("@/helper/slot.helper");
+const validateBookingSlot = async (input) => {
+    const { shopSlug, date, startTime, durationMin, staffId } = input;
+    const shop = await prisma_1.db.shop.findUnique({
+        where: { slug: shopSlug },
+    });
+    if (!shop)
+        throw new ApiError_1.ApiError(404, "Shop not found");
+    const endTime = (0, slot_helper_1.addMinutesToTime)(startTime, durationMin);
+    const appointmentDate = dayjs_1.default.tz(date, shop.timezone).startOf("day").toDate();
+    // Validate business hours
+    const [startHour, startMin] = startTime.split(":").map(Number);
+    const [endHour, endMin] = endTime.split(":").map(Number);
+    const [openHour, openMin] = shop.openTime.split(":").map(Number);
+    const [closeHour, closeMin] = shop.closeTime.split(":").map(Number);
+    const startMinutes = startHour * 60 + startMin;
+    const endMinutes = endHour * 60 + endMin;
+    const openMinutes = openHour * 60 + openMin;
+    const closeMinutes = closeHour * 60 + closeMin;
+    if (startMinutes < openMinutes || endMinutes > closeMinutes) {
+        throw new ApiError_1.ApiError(400, `Shop chỉ mở cửa từ ${shop.openTime} đến ${shop.closeTime}`);
+    }
+    // Validate date range
+    const today = dayjs_1.default.tz(new Date(), shop.timezone).startOf("day").toDate();
+    const maxDate = new Date(today);
+    maxDate.setDate(maxDate.getDate() + (shop.settings?.maxAdvanceBookingDays ?? 15));
+    if (appointmentDate < today) {
+        throw new ApiError_1.ApiError(400, "Không thể đặt lịch trong quá khứ");
+    }
+    if (appointmentDate > maxDate) {
+        throw new ApiError_1.ApiError(400, `Chỉ đặt trước tối đa ${shop.settings?.maxAdvanceBookingDays ?? 15} ngày`);
+    }
+    // Validate work day
+    const dayOfWeek = dayjs_1.default.tz(date, shop.timezone).day();
+    if (!shop.workDays.map((d) => (d === 7 ? 0 : d)).includes(dayOfWeek)) {
+        throw new ApiError_1.ApiError(400, "Shop không làm việc ngày này");
+    }
+    // Check staff availability
+    if (staffId) {
+        // Validate ObjectID format
+        if (!/^[0-9a-fA-F]{24}$/.test(staffId)) {
+            throw new ApiError_1.ApiError(400, "staffId không hợp lệ");
+        }
+        const { available, reason } = await (0, slot_helper_1.isStaffAvailable)(staffId, shop.id, dayOfWeek, appointmentDate);
+        if (!available) {
+            throw new ApiError_1.ApiError(400, reason || "Nhân viên không khả dụng");
+        }
+    }
+    // Check slot availability
+    const { available: slotAvailable, reason: slotReason } = await (0, slot_helper_1.checkSlotAvailability)(shop.id, appointmentDate, startTime, endTime, staffId);
+    if (!slotAvailable) {
+        throw new ApiError_1.ApiError(409, slotReason || "Slot không khả dụng");
+    }
+    return {
+        valid: true,
+        shop,
+        appointmentDate,
+        endTime,
+    };
+};
+exports.validateBookingSlot = validateBookingSlot;
+const getAvailableSlots = async (input) => {
+    const { shopSlug, date, durationMin, staffId } = input;
+    const shop = await prisma_1.db.shop.findUnique({
+        where: { slug: shopSlug },
+    });
+    if (!shop)
+        throw new ApiError_1.ApiError(404, "Shop not found");
+    const appointmentDate = dayjs_1.default.tz(date, shop.timezone).startOf("day").toDate();
+    // Validate date range
+    const today = dayjs_1.default.tz(new Date(), shop.timezone).startOf("day").toDate();
+    const maxDate = new Date(today);
+    maxDate.setDate(maxDate.getDate() + (shop.settings?.maxAdvanceBookingDays ?? 15));
+    if (appointmentDate < today) {
+        throw new ApiError_1.ApiError(400, "Không thể xem lịch trong quá khứ");
+    }
+    if (appointmentDate > maxDate) {
+        throw new ApiError_1.ApiError(400, `Chỉ xem lịch tối đa ${shop.settings?.maxAdvanceBookingDays ?? 15} ngày`);
+    }
+    // Check work day
+    const dayOfWeek = dayjs_1.default.tz(date, shop.timezone).day();
+    if (!shop.workDays.map((d) => (d === 7 ? 0 : d)).includes(dayOfWeek)) {
+        return {
+            date: appointmentDate,
+            isWorkDay: false,
+            slots: [],
+            message: "Shop không làm việc ngày này",
+        };
+    }
+    // Check staff availability if staffId provided
+    if (staffId) {
+        const { available, reason } = await (0, slot_helper_1.isStaffAvailable)(staffId, shop.id, dayOfWeek, appointmentDate);
+        if (!available) {
+            return {
+                date: appointmentDate,
+                isWorkDay: true,
+                staffAvailable: false,
+                slots: [],
+                message: reason || "Nhân viên không khả dụng",
+            };
+        }
+    }
+    // Generate all possible slots
+    const allSlots = (0, slot_helper_1.generateSlots)(shop.openTime, shop.closeTime, shop.settings?.slotIntervalMinutes ?? 15, durationMin);
+    // Get busy appointments
+    const busyAppointments = await (0, slot_helper_1.getBusyAppointments)(shop.id, appointmentDate, staffId);
+    // Filter available slots
+    const availableSlots = (0, slot_helper_1.filterAvailableSlots)(allSlots, busyAppointments, durationMin);
+    return {
+        date: appointmentDate,
+        isWorkDay: true,
+        staffAvailable: staffId ? true : undefined,
+        openTime: shop.openTime,
+        closeTime: shop.closeTime,
+        slotInterval: shop.settings?.slotIntervalMinutes ?? 15,
+        totalSlots: allSlots.length,
+        availableSlots,
+        busySlots: allSlots.length - availableSlots.length,
+    };
+};
+exports.getAvailableSlots = getAvailableSlots;
+const getAllSlots = async (shopSlug, date, durationMin) => {
+    const shop = await prisma_1.db.shop.findUnique({
+        where: { slug: shopSlug },
+    });
+    if (!shop)
+        throw new ApiError_1.ApiError(404, "Shop not found");
+    const appointmentDate = dayjs_1.default.tz(date, shop.timezone).startOf("day").toDate();
+    // Validate date range
+    const today = dayjs_1.default.tz(new Date(), shop.timezone).startOf("day").toDate();
+    const maxDate = new Date(today);
+    maxDate.setDate(maxDate.getDate() + (shop.settings?.maxAdvanceBookingDays ?? 15));
+    if (appointmentDate < today) {
+        throw new ApiError_1.ApiError(400, "Không thể xem lịch trong quá khứ");
+    }
+    if (appointmentDate > maxDate) {
+        throw new ApiError_1.ApiError(400, `Chỉ xem lịch tối đa ${shop.settings?.maxAdvanceBookingDays ?? 15} ngày`);
+    }
+    // Check work day
+    const dayOfWeek = dayjs_1.default.tz(date, shop.timezone).day();
+    if (!shop.workDays.map((d) => (d === 7 ? 0 : d)).includes(dayOfWeek)) {
+        return {
+            date: appointmentDate,
+            isWorkDay: false,
+            slots: [],
+            message: "Shop không làm việc ngày này",
+        };
+    }
+    // Generate all possible slots
+    const allSlots = (0, slot_helper_1.generateSlots)(shop.openTime, shop.closeTime, shop.settings?.slotIntervalMinutes ?? 15, durationMin);
+    return {
+        date: appointmentDate,
+        isWorkDay: true,
+        openTime: shop.openTime,
+        closeTime: shop.closeTime,
+        slotInterval: shop.settings?.slotIntervalMinutes ?? 15,
+        slots: allSlots,
+        totalSlots: allSlots.length,
+    };
+};
+exports.getAllSlots = getAllSlots;
+const getTimeSlots = async (shopSlug, date) => {
+    const shop = await prisma_1.db.shop.findUnique({
+        where: { slug: shopSlug },
+    });
+    if (!shop)
+        throw new ApiError_1.ApiError(404, "Shop not found");
+    const appointmentDate = dayjs_1.default.tz(date, shop.timezone).startOf("day").toDate();
+    // Check work day
+    const dayOfWeek = dayjs_1.default.tz(date, shop.timezone).day();
+    if (!shop.workDays.map((d) => (d === 7 ? 0 : d)).includes(dayOfWeek)) {
+        return {
+            date: appointmentDate,
+            isWorkDay: false,
+            slots: [],
+            message: "Shop không làm việc ngày này",
+        };
+    }
+    // Generate all time slots based on interval only (for UI rendering)
+    const intervalMinutes = shop.settings?.slotIntervalMinutes ?? 15;
+    const slots = [];
+    let current = (0, slot_helper_1.timeToMinutes)(shop.openTime);
+    const end = (0, slot_helper_1.timeToMinutes)(shop.closeTime);
+    while (current < end) {
+        const hours = Math.floor(current / 60)
+            .toString()
+            .padStart(2, "0");
+        const minutes = (current % 60).toString().padStart(2, "0");
+        slots.push(`${hours}:${minutes}`);
+        current += intervalMinutes;
+    }
+    return {
+        date: appointmentDate,
+        isWorkDay: true,
+        openTime: shop.openTime,
+        closeTime: shop.closeTime,
+        slotInterval: intervalMinutes,
+        slots,
+        totalSlots: slots.length,
+    };
+};
+exports.getTimeSlots = getTimeSlots;
+const getAppointmentsWithSlots = async (shopSlug, date) => {
+    const shop = await prisma_1.db.shop.findUnique({
+        where: { slug: shopSlug },
+        include: {
+            businessHours: true,
+        },
+    });
+    if (!shop) {
+        throw new ApiError_1.ApiError(404, "Shop not found");
+    }
+    const selectedDate = dayjs_1.default.tz(date, shop.timezone);
+    if (!selectedDate.isValid()) {
+        throw new ApiError_1.ApiError(400, "Ngày không hợp lệ");
+    }
+    const appointmentDate = selectedDate.startOf("day").toDate();
+    const dayOfWeek = selectedDate.day();
+    const businessHour = shop.businessHours.find((item) => item.dayOfWeek === dayOfWeek);
+    if (!businessHour || businessHour.isClosed) {
+        return {
+            date: appointmentDate,
+            timezone: shop.timezone,
+            isWorkDay: false,
+            schedule: null,
+            appointments: [],
+            message: "Shop không làm việc ngày này",
+        };
+    }
+    const appointments = await prisma_1.db.appointment.findMany({
+        where: {
+            shopId: shop.id,
+            date: appointmentDate,
+            status: {
+                notIn: ["CANCELLED", "NO_SHOW"],
+            },
+        },
+        include: {
+            services: {
+                include: {
+                    selectedValues: {
+                        include: {
+                            optionValue: {
+                                include: {
+                                    option: true,
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            packages: {
+                include: {
+                    package: {
+                        include: {
+                            items: {
+                                include: {
+                                    service: true,
+                                    optionValue: {
+                                        include: {
+                                            option: true,
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    addons: {
+                        include: {
+                            addon: true,
+                        },
+                    },
+                },
+            },
+            addons: {
+                include: {
+                    addon: true,
+                },
+            },
+            customer: true,
+        },
+        orderBy: {
+            startTime: "asc",
+        },
+    });
+    return {
+        date: appointmentDate,
+        timezone: shop.timezone,
+        isWorkDay: true,
+        schedule: {
+            openTime: businessHour.openTime,
+            closeTime: businessHour.closeTime,
+        },
+        appointments,
+    };
+};
+exports.getAppointmentsWithSlots = getAppointmentsWithSlots;
+const getMonthAvailability = async (shopSlug, year, month, staffId) => {
+    const shop = await prisma_1.db.shop.findUnique({
+        where: { slug: shopSlug },
+    });
+    if (!shop)
+        throw new ApiError_1.ApiError(404, "Shop not found");
+    const firstDay = new Date(year, month - 1, 1);
+    const lastDay = new Date(year, month, 0);
+    const today = dayjs_1.default.tz(new Date(), shop.timezone).startOf("day").toDate();
+    const maxDate = new Date(today);
+    maxDate.setDate(maxDate.getDate() + (shop.settings?.maxAdvanceBookingDays ?? 15));
+    const daysInMonth = [];
+    for (let day = 1; day <= lastDay.getDate(); day++) {
+        const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        const d = dayjs_1.default.tz(dateStr, shop.timezone);
+        const currentDate = d.startOf("day").toDate();
+        const dayOfWeek = d.day();
+        const isWorkDay = shop.workDays
+            .map((d) => (d === 7 ? 0 : d))
+            .includes(dayOfWeek);
+        const isPast = currentDate < today;
+        const isBeyondBookingLimit = currentDate > maxDate;
+        let hasAvailability = false;
+        if (isWorkDay && !isPast && !isBeyondBookingLimit) {
+            if (staffId) {
+                const { available } = await (0, slot_helper_1.isStaffAvailable)(staffId, shop.id, dayOfWeek, currentDate);
+                hasAvailability = available;
+            }
+            else {
+                hasAvailability = true;
+            }
+        }
+        daysInMonth.push({
+            date: d.format("YYYY-MM-DD"),
+            dayOfWeek,
+            isWorkDay,
+            isPast,
+            isBeyondBookingLimit,
+            hasAvailability,
+        });
+    }
+    return {
+        year,
+        month,
+        shopName: shop.name,
+        workDays: shop.workDays,
+        maxAdvanceBookingDays: shop.settings?.maxAdvanceBookingDays ?? 15,
+        days: daysInMonth,
+    };
+};
+exports.getMonthAvailability = getMonthAvailability;

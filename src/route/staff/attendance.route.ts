@@ -11,6 +11,7 @@ import {
 import { validate } from '@/middleware/validation.middleware';
 const attandanceRouter = Router({ mergeParams: true });
 attandanceRouter.use(authenticate);
+attandanceRouter.use(requireShopAccess("STAFF"));
 attandanceRouter.patch('/check-in', checkInController);
 attandanceRouter.get('/qr/check-in', authenticate, getCheckInQRController);
 attandanceRouter.get('/qr/check-out', authenticate, getCheckOutQRController);
