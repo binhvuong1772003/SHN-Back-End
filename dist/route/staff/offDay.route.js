@@ -1,12 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const authenticate_middleware_1 = require("@/middleware/authenticate.middleware");
-const shop_middleware_1 = require("@/middleware/shop.middleware");
+const authenticate_middleware_1 = require("../../middleware/authenticate.middleware");
+const shop_middleware_1 = require("../../middleware/shop.middleware");
 const express_1 = require("express");
-const offDay_controller_1 = require("@/controller/staff/offDay.controller");
-const staff_validate_1 = require("@/validation/staff.validate");
-const validation_middleware_1 = require("@/middleware/validation.middleware");
-const common_validate_1 = require("@/validation/common.validate");
+const offDay_controller_1 = require("../../controller/staff/offDay.controller");
+const staff_validate_1 = require("../../validation/staff.validate");
+const validation_middleware_1 = require("../../middleware/validation.middleware");
+const common_validate_1 = require("../../validation/common.validate");
 const offDayRouter = (0, express_1.Router)({ mergeParams: true });
 offDayRouter.use(authenticate_middleware_1.authenticate);
 offDayRouter.use((0, shop_middleware_1.requireShopAccess)("STAFF"));

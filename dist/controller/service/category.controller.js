@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateCategoryController = exports.getCategoryByIdController = exports.getCategoriesController = exports.deleteCategoryController = exports.createCategoryController = void 0;
-const category_service_1 = require("@/service/service/category.service");
-const apiResponse_1 = require("@/utils/apiResponse");
+const category_service_1 = require("../../service/service/category.service");
+const apiResponse_1 = require("../../utils/apiResponse");
 const createCategoryController = async (req, res, next) => {
     try {
         const data = req.body;

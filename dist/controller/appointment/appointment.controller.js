@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getIncomeByDayWeeklyController = exports.markAllAppointmentsAsDoneController = exports.changeAppointmentStatusController = exports.getAppointmentsByDayController = exports.getAppointmentsByShopIdController = exports.createAppointmentController = void 0;
-const appointment_service_1 = require("@/service/appointment/appointment.service");
-const apiResponse_1 = require("@/utils/apiResponse");
+exports.getIncomeByDayWeeklyController = exports.markAllAppointmentsAsDoneController = exports.getAppointmentLifecycleController = exports.changeAppointmentStatusController = exports.getAppointmentsByDayController = exports.getAppointmentsByShopIdController = exports.createAppointmentController = void 0;
+const appointment_service_1 = require("../../service/appointment/appointment.service");
+const apiResponse_1 = require("../../utils/apiResponse");
 const createAppointmentController = async (req, res, next) => {
     try {
         const shopSlug = req.params.shopSlug;
@@ -40,7 +40,7 @@ const getAppointmentsByDayController = async (req, res, next) => {
 exports.getAppointmentsByDayController = getAppointmentsByDayController;
 const changeAppointmentStatusController = async (req, res, next) => {
     try {
-        const appointment = await (0, appointment_service_1.changeAppointmentStatus)(req.params.shopSlug, req.params.appointmentId, req.body.status);
+        const appointment = await (0, appointment_service_1.changeAppointmentStatus)(req.params.shopSlug, req.params.appointmentId, req.body.status, req.user?.userId, req.shopStaff?.role, req.body.reason, req.body.cancelReason, req.body.internalNote);
         (0, apiResponse_1.sendSuccess)(res, appointment);
     }
     catch (error) {
@@ -48,10 +48,20 @@ const changeAppointmentStatusController = async (req, res, next) => {
     }
 };
 exports.changeAppointmentStatusController = changeAppointmentStatusController;
+const getAppointmentLifecycleController = async (req, res, next) => {
+    try {
+        const lifecycle = await (0, appointment_service_1.getAppointmentLifecycle)(req.params.shopSlug, req.params.appointmentId);
+        (0, apiResponse_1.sendSuccess)(res, lifecycle);
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.getAppointmentLifecycleController = getAppointmentLifecycleController;
 const markAllAppointmentsAsDoneController = async (req, res, next) => {
     try {
-        const result = await (0, appointment_service_1.markAllAppointmentsAsDone)(req.params.shopSlug);
-        (0, apiResponse_1.sendSuccess)(res, result, { message: "All appointments marked as done" });
+        const result = await (0, appointment_service_1.markAllAppointmentsAsDone)(req.params.shopSlug, req.user?.userId, req.shopStaff?.role);
+        (0, apiResponse_1.sendSuccess)(res, result, { message: "All appointments marked as completed" });
     }
     catch (error) {
         next(error);

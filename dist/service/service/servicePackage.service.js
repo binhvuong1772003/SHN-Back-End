@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteServicePackage = exports.updateServicePackage = exports.getServicePackageById = exports.getServicePackages = exports.createServicePackage = void 0;
-const prisma_1 = require("@/db/prisma");
-const ApiError_1 = require("@/utils/ApiError");
+const prisma_1 = require("../../db/prisma");
+const ApiError_1 = require("../../utils/ApiError");
 const createServicePackage = async (data, shopSlug) => {
     const shop = await prisma_1.db.shop.findUnique({ where: { slug: shopSlug } });
     if (!shop)

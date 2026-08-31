@@ -3,9 +3,24 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.changeAppointmentStatusSchema = exports.getAppointmentsByDaySchema = exports.getAppointmentsSchema = exports.updateAppointmentStatusSchema = exports.createAppointmentSchema = exports.getAvailableSlotsSchema = void 0;
+exports.changeAppointmentStatusSchema = exports.getAppointmentsByDaySchema = exports.getAppointmentsSchema = exports.updateAppointmentStatusSchema = exports.createAppointmentSchema = exports.getAvailableSlotsSchema = exports.appointmentTransitionStatusSchema = exports.appointmentStatusSchema = void 0;
 const zod_1 = __importDefault(require("zod"));
-const common_validate_1 = require("@/validation/common.validate");
+const common_validate_1 = require("../validation/common.validate");
+exports.appointmentStatusSchema = zod_1.default.enum([
+    'PENDING',
+    'CONFIRMED',
+    'IN_PROGRESS',
+    'COMPLETED',
+    'CANCELLED',
+    'NO_SHOW',
+]);
+exports.appointmentTransitionStatusSchema = zod_1.default.enum([
+    'CONFIRMED',
+    'IN_PROGRESS',
+    'COMPLETED',
+    'CANCELLED',
+    'NO_SHOW',
+]);
 exports.getAvailableSlotsSchema = {
     query: zod_1.default.object({
         shopSlug: zod_1.default.string().trim().min(1),
@@ -37,39 +52,26 @@ exports.createAppointmentSchema = {
     })
         .refine((d) => (d.serviceIds?.length ?? 0) > 0 || (d.packageIds?.length ?? 0) > 0, { message: 'At least one service or package is required' }),
 };
+const appointmentStatusUpdateBodySchema = zod_1.default
+    .object({
+    status: exports.appointmentTransitionStatusSchema,
+    staffId: common_validate_1.objectIdSchema.optional(),
+    cancelReason: zod_1.default.string().trim().max(500).optional(),
+    reason: zod_1.default.string().trim().max(500).optional(),
+    internalNote: zod_1.default.string().max(500).optional(),
+})
+    .refine((d) => d.status !== 'CANCELLED' || !!d.cancelReason || !!d.reason, {
+    message: 'Cancellation reason is required',
+    path: ['cancelReason'],
+});
 exports.updateAppointmentStatusSchema = {
-    body: zod_1.default
-        .object({
-        status: zod_1.default.enum([
-            'CONFIRMED',
-            'IN_PROGRESS',
-            'DONE',
-            'CANCELLED',
-            'NO_SHOW',
-        ]),
-        staffId: common_validate_1.objectIdSchema.optional(),
-        cancelReason: zod_1.default.string().optional(),
-        internalNote: zod_1.default.string().max(500).optional(),
-    })
-        .refine((d) => d.status !== 'CANCELLED' || !!d.cancelReason, {
-        message: 'Cancellation reason is required',
-        path: ['cancelReason'],
-    }),
+    body: appointmentStatusUpdateBodySchema,
 };
 exports.getAppointmentsSchema = {
     query: zod_1.default.object({
         shopId: common_validate_1.objectIdSchema.optional(),
         date: common_validate_1.dateOnlySchema.optional(),
-        status: zod_1.default
-            .enum([
-            'PENDING',
-            'CONFIRMED',
-            'IN_PROGRESS',
-            'DONE',
-            'CANCELLED',
-            'NO_SHOW',
-        ])
-            .optional(),
+        status: exports.appointmentStatusSchema.optional(),
         staffId: common_validate_1.objectIdSchema.optional(),
         assignedToMe: zod_1.default.enum(['true', 'false']).optional(),
         page: zod_1.default.coerce.number().int().min(1).default(1).optional(),
@@ -83,13 +85,5 @@ exports.getAppointmentsByDaySchema = {
     }),
 };
 exports.changeAppointmentStatusSchema = {
-    body: zod_1.default.object({
-        status: zod_1.default.enum([
-            'CONFIRMED',
-            'IN_PROGRESS',
-            'DONE',
-            'CANCELLED',
-            'NO_SHOW',
-        ]),
-    }),
+    body: appointmentStatusUpdateBodySchema,
 };

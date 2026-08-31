@@ -8,7 +8,7 @@ const node_cron_1 = __importDefault(require("node-cron"));
 const dayjs_1 = __importDefault(require("dayjs"));
 const utc_1 = __importDefault(require("dayjs/plugin/utc"));
 const timezone_1 = __importDefault(require("dayjs/plugin/timezone"));
-const prisma_1 = require("@/db/prisma");
+const prisma_1 = require("../db/prisma");
 dayjs_1.default.extend(utc_1.default);
 dayjs_1.default.extend(timezone_1.default);
 const timeToMinutes = (time) => {

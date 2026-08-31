@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getCurrentShopMembershipService = void 0;
-const prisma_1 = require("@/db/prisma");
-const ApiError_1 = require("@/utils/ApiError");
+const prisma_1 = require("../../db/prisma");
+const ApiError_1 = require("../../utils/ApiError");
 const getCurrentShopMembershipService = async (shopSlug, userId) => {
     if (!userId)
         throw new ApiError_1.ApiError(401, "Unauthorized");

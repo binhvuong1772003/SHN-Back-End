@@ -1,11 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const authenticate_middleware_1 = require("@/middleware/authenticate.middleware");
-const shop_middleware_1 = require("@/middleware/shop.middleware");
-const validation_middleware_1 = require("@/middleware/validation.middleware");
-const common_validate_1 = require("@/validation/common.validate");
-const nofitication_controller_1 = require("@/controller/notification/nofitication.controller");
+const authenticate_middleware_1 = require("../../middleware/authenticate.middleware");
+const shop_middleware_1 = require("../../middleware/shop.middleware");
+const validation_middleware_1 = require("../../middleware/validation.middleware");
+const common_validate_1 = require("../../validation/common.validate");
+const nofitication_controller_1 = require("../../controller/notification/nofitication.controller");
 const notiRouter = (0, express_1.Router)({ mergeParams: true });
 notiRouter.use(authenticate_middleware_1.authenticate, (0, shop_middleware_1.requireShopAccess)("STAFF"));
 notiRouter.get('/', (0, validation_middleware_1.validate)({ query: common_validate_1.notificationListQuerySchema }), nofitication_controller_1.getListNotificationController);

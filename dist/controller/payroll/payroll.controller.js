@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getMyPayrollDetailController = exports.getMyPayrollsController = exports.payPayrollController = exports.confirmPayrollController = exports.adjustDraftPayrollController = exports.getPayrollDetailController = exports.getPayrollListController = exports.generateDraftPayrollsController = exports.upsertServiceCommissionController = exports.getServiceCommissionsController = exports.upsertSalaryConfigController = exports.getSalaryConfigController = void 0;
-const payroll_service_1 = require("@/service/payroll/payroll.service");
-const apiResponse_1 = require("@/utils/apiResponse");
+const payroll_service_1 = require("../../service/payroll/payroll.service");
+const apiResponse_1 = require("../../utils/apiResponse");
 const getSalaryConfigController = async (req, res, next) => {
     try {
         const result = await (0, payroll_service_1.getSalaryConfigService)(req.params.shopSlug, req.params.staffId);

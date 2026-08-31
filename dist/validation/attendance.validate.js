@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.adjustAttendanceSchema = exports.shopAttendanceQuerySchema = exports.myAttendanceHistorySchema = exports.manualAttendanceSchema = exports.attendanceQrSchema = void 0;
 const zod_1 = require("zod");
-const common_validate_1 = require("@/validation/common.validate");
+const common_validate_1 = require("../validation/common.validate");
 exports.attendanceQrSchema = zod_1.z.object({
     qrToken: zod_1.z.string().trim().min(1, "QR token is required"),
 });

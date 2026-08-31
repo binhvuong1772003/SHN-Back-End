@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.validateMultipartBody = void 0;
-const apiResponse_1 = require("@/utils/apiResponse");
+const apiResponse_1 = require("../utils/apiResponse");
 const validateMultipartBody = (schema) => {
     return (req, res, next) => {
         let payload;

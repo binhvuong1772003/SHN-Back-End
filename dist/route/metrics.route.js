@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const redisMetrics_1 = require("@/observability/redisMetrics");
+const redisMetrics_1 = require("../observability/redisMetrics");
 const metricsRouter = (0, express_1.Router)();
 const metricsHandler = async (_req, res, next) => {
     try {

@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateBusinessHoursController = exports.getBusinessHoursController = exports.uploadShopBannerController = exports.uploadShopLogoController = exports.updateShopController = exports.getShopDetailController = exports.getListShopController = exports.createShopController = void 0;
-const shop_service_1 = require("@/service/shop/shop.service");
-const cloudinary_1 = require("@/utils/cloudinary");
-const apiResponse_1 = require("@/utils/apiResponse");
+const shop_service_1 = require("../../service/shop/shop.service");
+const cloudinary_1 = require("../../utils/cloudinary");
+const apiResponse_1 = require("../../utils/apiResponse");
 const createShopController = async (req, res, next) => {
     try {
         const input = req.body;

@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getAvailableSlots = void 0;
-const prisma_1 = require("@/db/prisma");
-const ApiError_1 = require("@/utils/ApiError");
+const prisma_1 = require("../../db/prisma");
+const ApiError_1 = require("../../utils/ApiError");
 const timeToMinutes = (time) => {
     const [h, m] = time.split(':').map(Number);
     return h * 60 + m;

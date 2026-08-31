@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteNotificationController = exports.markReadController = exports.getListNotificationController = void 0;
-const notification_service_1 = require("@/service/notification/notification.service");
-const apiResponse_1 = require("@/utils/apiResponse");
+const notification_service_1 = require("../../service/notification/notification.service");
+const apiResponse_1 = require("../../utils/apiResponse");
 const getListNotificationController = async (req, res, next) => {
     try {
         const shopSlug = req.params.shopSlug;

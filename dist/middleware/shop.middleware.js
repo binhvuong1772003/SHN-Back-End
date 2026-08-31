@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.requireShopAccess = void 0;
-const ApiError_1 = require("@/utils/ApiError");
-const prisma_1 = require("@/db/prisma");
+const ApiError_1 = require("../utils/ApiError");
+const prisma_1 = require("../db/prisma");
 const requireShopAccess = (minRole = "STAFF") => async (req, res, next) => {
     console.log("SHOP ACCESS:", {
         params: req.params,

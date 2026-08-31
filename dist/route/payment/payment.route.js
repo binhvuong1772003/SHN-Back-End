@@ -1,0 +1,14 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const authenticate_middleware_1 = require("../../middleware/authenticate.middleware");
+const shop_middleware_1 = require("../../middleware/shop.middleware");
+const validation_middleware_1 = require("../../middleware/validation.middleware");
+const payment_controller_1 = require("../../controller/payment/payment.controller");
+const payment_management_validate_1 = require("../../validation/payment-management.validate");
+const paymentRouter = (0, express_1.Router)({ mergeParams: true });
+paymentRouter.use(authenticate_middleware_1.authenticate);
+paymentRouter.use((0, shop_middleware_1.requireShopAccess)("MANAGER"));
+paymentRouter.get("/", (0, validation_middleware_1.validate)({ query: payment_management_validate_1.paymentListQuerySchema }), payment_controller_1.getPaymentListController);
+paymentRouter.get("/:paymentId", (0, validation_middleware_1.validate)({ params: payment_management_validate_1.paymentDetailParamsSchema }), payment_controller_1.getPaymentDetailController);
+exports.default = paymentRouter;

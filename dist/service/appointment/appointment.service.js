@@ -3,18 +3,39 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.markAllAppointmentsAsDone = exports.getIncomeByDayWeekly = exports.changeAppointmentStatus = exports.getAppointmentsByDay = exports.getAppointmentsByShopId = exports.createAppointment = void 0;
-const prisma_1 = require("@/db/prisma");
-const ApiError_1 = require("@/utils/ApiError");
-const calendar_service_1 = require("@/service/calendar/calendar.service");
-const slot_helper_1 = require("@/helper/slot.helper");
-const price_helper_1 = require("@/helper/price.helper");
+exports.markAllAppointmentsAsDone = exports.getIncomeByDayWeekly = exports.getAppointmentLifecycle = exports.changeAppointmentStatus = exports.getAppointmentsByDay = exports.getAppointmentsByShopId = exports.createAppointment = void 0;
+const prisma_1 = require("../../db/prisma");
+const ApiError_1 = require("../../utils/ApiError");
+const calendar_service_1 = require("../../service/calendar/calendar.service");
+const slot_helper_1 = require("../../helper/slot.helper");
+const price_helper_1 = require("../../helper/price.helper");
 const dayjs_1 = __importDefault(require("dayjs"));
 const utc_1 = __importDefault(require("dayjs/plugin/utc"));
 const timezone_1 = __importDefault(require("dayjs/plugin/timezone"));
 dayjs_1.default.extend(utc_1.default);
 dayjs_1.default.extend(timezone_1.default);
-const socket_1 = require("@/socket");
+const socket_1 = require("../../socket");
+const appointmentTransitions = {
+    PENDING: ["CONFIRMED", "CANCELLED"],
+    CONFIRMED: ["IN_PROGRESS", "CANCELLED", "NO_SHOW"],
+    IN_PROGRESS: ["COMPLETED"],
+    COMPLETED: [],
+    CANCELLED: [],
+    NO_SHOW: [],
+};
+const assertManagerCanChangeStatus = (role) => {
+    if (role !== "OWNER" && role !== "MANAGER") {
+        throw new ApiError_1.ApiError(403, "Only shop managers can change appointment status");
+    }
+};
+const isAppointmentStatus = (status) => [
+    "PENDING",
+    "CONFIRMED",
+    "IN_PROGRESS",
+    "COMPLETED",
+    "CANCELLED",
+    "NO_SHOW",
+].includes(status);
 const createAppointment = async (data, customerId, shopSlug) => {
     if (!customerId)
         throw new ApiError_1.ApiError(401, "Unauthorized");
@@ -178,6 +199,26 @@ const createAppointment = async (data, customerId, shopSlug) => {
             customer: true,
         },
     });
+    await prisma_1.db.appointmentLifecycle.create({
+        data: {
+            appointmentId: appointment.id,
+            shopId: shop.id,
+            toStatus: appointment.status,
+            changedById: customerId,
+            reason: "Appointment created",
+            metadata: { source: source ?? "APP", autoConfirmed: Boolean(shop.settings?.autoConfirm) },
+        },
+    });
+    await prisma_1.db.auditLog.create({
+        data: {
+            shopId: shop.id,
+            userId: customerId,
+            action: "APPOINTMENT_CREATED",
+            entity: "Appointment",
+            entityId: appointment.id,
+            changes: { toStatus: appointment.status },
+        },
+    });
     if (promotionId) {
         await (0, price_helper_1.incrementPromotionUsage)(promotionId);
     }
@@ -264,22 +305,98 @@ const getAppointmentsByDay = async (shopSlug, date, staffUserId) => {
     return data;
 };
 exports.getAppointmentsByDay = getAppointmentsByDay;
-const changeAppointmentStatus = async (shopSlug, appointmentId, status) => {
+const changeAppointmentStatus = async (shopSlug, appointmentId, status, actorUserId, actorRole, reason, cancelReason, internalNote) => {
+    assertManagerCanChangeStatus(actorRole);
+    if (!actorUserId)
+        throw new ApiError_1.ApiError(401, "Unauthorized");
+    if (!isAppointmentStatus(status) || status === "PENDING") {
+        throw new ApiError_1.ApiError(400, "Invalid appointment transition status");
+    }
     const shop = await prisma_1.db.shop.findUnique({
         where: { slug: shopSlug },
     });
     if (!shop)
         throw new ApiError_1.ApiError(404, "Shop not found");
-    return await prisma_1.db.appointment.update({
-        where: {
-            id: appointmentId,
-        },
-        data: {
-            status: status,
-        },
+    return await prisma_1.db.$transaction(async (tx) => {
+        const current = await tx.appointment.findFirst({
+            where: { id: appointmentId, shopId: shop.id },
+            select: { id: true, shopId: true, status: true, cancelReason: true },
+        });
+        if (!current)
+            throw new ApiError_1.ApiError(404, "Appointment not found");
+        const nextStatus = status;
+        if (!appointmentTransitions[current.status].includes(nextStatus)) {
+            throw new ApiError_1.ApiError(409, `Cannot change appointment status from ${current.status} to ${nextStatus}`);
+        }
+        if (nextStatus === "CANCELLED" && !(cancelReason || reason)) {
+            throw new ApiError_1.ApiError(400, "Cancellation reason is required");
+        }
+        const now = new Date();
+        const updateResult = await tx.appointment.updateMany({
+            where: { id: current.id, shopId: current.shopId, status: current.status },
+            data: {
+                status: nextStatus,
+                ...(nextStatus === "IN_PROGRESS" ? { checkedInAt: now } : {}),
+                ...(nextStatus === "COMPLETED" ? { completedAt: now } : {}),
+                ...(nextStatus === "CANCELLED"
+                    ? { cancelReason: cancelReason || reason }
+                    : {}),
+                ...(internalNote !== undefined ? { internalNote } : {}),
+            },
+        });
+        if (updateResult.count !== 1) {
+            throw new ApiError_1.ApiError(409, "Appointment status was changed by another request");
+        }
+        const updated = await tx.appointment.findUnique({ where: { id: current.id } });
+        if (!updated)
+            throw new ApiError_1.ApiError(404, "Appointment not found");
+        await tx.appointmentLifecycle.create({
+            data: {
+                appointmentId: current.id,
+                shopId: current.shopId,
+                fromStatus: current.status,
+                toStatus: nextStatus,
+                reason: reason || cancelReason || null,
+                changedById: actorUserId,
+            },
+        });
+        await tx.auditLog.create({
+            data: {
+                shopId: current.shopId,
+                userId: actorUserId,
+                action: "APPOINTMENT_STATUS_CHANGED",
+                entity: "Appointment",
+                entityId: current.id,
+                changes: {
+                    fromStatus: current.status,
+                    toStatus: nextStatus,
+                    reason: reason || cancelReason || null,
+                },
+            },
+        });
+        return updated;
     });
 };
 exports.changeAppointmentStatus = changeAppointmentStatus;
+const getAppointmentLifecycle = async (shopSlug, appointmentId) => {
+    const shop = await prisma_1.db.shop.findUnique({ where: { slug: shopSlug } });
+    if (!shop)
+        throw new ApiError_1.ApiError(404, "Shop not found");
+    const appointment = await prisma_1.db.appointment.findFirst({
+        where: { id: appointmentId, shopId: shop.id },
+        select: { id: true },
+    });
+    if (!appointment)
+        throw new ApiError_1.ApiError(404, "Appointment not found");
+    return prisma_1.db.appointmentLifecycle.findMany({
+        where: { appointmentId: appointment.id, shopId: shop.id },
+        orderBy: { createdAt: "asc" },
+        include: {
+            changedBy: { select: { id: true, name: true } },
+        },
+    });
+};
+exports.getAppointmentLifecycle = getAppointmentLifecycle;
 const getIncomeByDayWeekly = async (shopSlug) => {
     const shop = await prisma_1.db.shop.findUnique({
         where: { slug: shopSlug },
@@ -294,7 +411,7 @@ const getIncomeByDayWeekly = async (shopSlug) => {
     const appointments = await prisma_1.db.appointment.findMany({
         where: {
             shopId: shop.id,
-            status: "DONE",
+            status: "COMPLETED",
             date: {
                 gte: start,
                 lt: end,
@@ -328,16 +445,25 @@ const getIncomeByDayWeekly = async (shopSlug) => {
     return { weekRange, days, today, weeklyTotal };
 };
 exports.getIncomeByDayWeekly = getIncomeByDayWeekly;
-const markAllAppointmentsAsDone = async (shopSlug) => {
+const markAllAppointmentsAsDone = async (shopSlug, actorUserId, actorRole) => {
+    assertManagerCanChangeStatus(actorRole);
+    if (!actorUserId)
+        throw new ApiError_1.ApiError(401, "Unauthorized");
     const shop = await prisma_1.db.shop.findUnique({
         where: { slug: shopSlug },
     });
     if (!shop)
         throw new ApiError_1.ApiError(404, "Shop not found");
-    const result = await prisma_1.db.appointment.updateMany({
-        where: { shopId: shop.id },
-        data: { status: "DONE" },
+    const appointments = await prisma_1.db.appointment.findMany({
+        where: {
+            shopId: shop.id,
+            status: { in: ["CONFIRMED", "IN_PROGRESS"] },
+        },
+        select: { id: true, status: true },
     });
-    return result;
+    for (const appointment of appointments) {
+        await (0, exports.changeAppointmentStatus)(shopSlug, appointment.id, "COMPLETED", actorUserId, actorRole, "Bulk completion by manager");
+    }
+    return { count: appointments.length };
 };
 exports.markAllAppointmentsAsDone = markAllAppointmentsAsDone;

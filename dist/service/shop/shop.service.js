@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateBusinessHoursService = exports.getBusinessHoursService = exports.uploadShopBannerService = exports.uploadShopLogoService = exports.updateShopService = exports.getListShopService = exports.createShopService = void 0;
-const prisma_1 = require("@/db/prisma");
-const ApiError_1 = require("@/utils/ApiError");
-const cloudinary_1 = require("@/utils/cloudinary");
+const prisma_1 = require("../../db/prisma");
+const ApiError_1 = require("../../utils/ApiError");
+const cloudinary_1 = require("../../utils/cloudinary");
 const createShopService = async (data, ownerId) => {
     if (!ownerId)
         throw new ApiError_1.ApiError(401, "Unauthorized");

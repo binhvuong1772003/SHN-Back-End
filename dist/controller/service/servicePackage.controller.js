@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteServicePackageController = exports.updateServicePackageController = exports.getServicePackageByIdController = exports.getServicePackagesController = exports.createServicePackageController = void 0;
-const servicePackage_service_1 = require("@/service/service/servicePackage.service");
-const apiResponse_1 = require("@/utils/apiResponse");
+const servicePackage_service_1 = require("../../service/service/servicePackage.service");
+const apiResponse_1 = require("../../utils/apiResponse");
 const createServicePackageController = async (req, res, next) => {
     try {
         const shopSlug = req.params.shopSlug;

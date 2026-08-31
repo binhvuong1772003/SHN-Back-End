@@ -136,7 +136,13 @@ export const createPayment = async (
 };
 
 export const getPayment = async (shopSlug: string, appointmentId: string) => {
-  const { appointment } = await getAppointmentForPayment(shopSlug, appointmentId);
+  const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
+  if (!shop) throw new ApiError(404, "Shop not found");
+  const appointment = await db.appointment.findFirst({
+    where: { id: appointmentId, shopId: shop.id },
+    select: { id: true },
+  });
+  if (!appointment) throw new ApiError(404, "Appointment not found");
   return db.payment.findUnique({ where: { appointmentId: appointment.id } });
 };
 
@@ -259,6 +265,9 @@ export const confirmPayment = async (
     if (!payment) throw new ApiError(404, "Payment has not been created");
     if (payment.status === "PAID") {
       throw new ApiError(409, "Payment has already been confirmed");
+    }
+    if (payment.status === "REFUNDED") {
+      throw new ApiError(409, "Refunded payments cannot be confirmed");
     }
     if (input.paidAmount > payment.amount) {
       throw new ApiError(400, "Paid amount cannot exceed payment amount");

@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getMonthAvailabilityController = exports.getAppointmentsWithSlotsController = exports.getTimeSlotsController = exports.getAllSlotsController = exports.getAvailableSlotsController = void 0;
-const calendar_service_1 = require("@/service/calendar/calendar.service");
-const apiResponse_1 = require("@/utils/apiResponse");
+const calendar_service_1 = require("../../service/calendar/calendar.service");
+const apiResponse_1 = require("../../utils/apiResponse");
 const getAvailableSlotsController = async (req, res, next) => {
     try {
         const shopSlug = req.params.shopSlug;

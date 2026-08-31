@@ -2,8 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteAddonService = exports.updateAddonService = exports.getAddonServiceById = exports.getAddonServices = exports.createAddonService = void 0;
 // service/addonService.service.ts
-const prisma_1 = require("@/db/prisma");
-const ApiError_1 = require("@/utils/ApiError");
+const prisma_1 = require("../../db/prisma");
+const ApiError_1 = require("../../utils/ApiError");
 const createAddonService = async (shopSlug, data) => {
     const shop = await prisma_1.db.shop.findUnique({ where: { slug: shopSlug } });
     if (!shop)

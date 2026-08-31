@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getDetailDayOffController = exports.getListOffDayController = exports.responseOffDayController = exports.requestOffDayController = void 0;
-const offDay_service_1 = require("@/service/staff/offDay.service");
-const ApiError_1 = require("@/utils/ApiError");
-const apiResponse_1 = require("@/utils/apiResponse");
+const offDay_service_1 = require("../../service/staff/offDay.service");
+const ApiError_1 = require("../../utils/ApiError");
+const apiResponse_1 = require("../../utils/apiResponse");
 const requestOffDayController = async (req, res, next) => {
     try {
         const { shopSlug, staffId } = req.params;

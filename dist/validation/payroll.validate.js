@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.payPayrollSchema = exports.payrollAdjustmentSchema = exports.payrollListQuerySchema = exports.generatePayrollSchema = exports.serviceCommissionSchema = exports.salaryConfigSchema = void 0;
 const zod_1 = require("zod");
-const common_validate_1 = require("@/validation/common.validate");
+const common_validate_1 = require("../validation/common.validate");
 const dateSchema = common_validate_1.dateOnlySchema;
 exports.salaryConfigSchema = zod_1.z
     .object({

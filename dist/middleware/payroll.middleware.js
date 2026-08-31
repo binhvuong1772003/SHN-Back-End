@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.requirePayrollAdjustmentPermission = void 0;
-const ApiError_1 = require("@/utils/ApiError");
+const ApiError_1 = require("../utils/ApiError");
 const requirePayrollAdjustmentPermission = (req, _res, next) => {
     if (req.user?.role === "SUPER_ADMIN" || req.shopStaff?.role === "OWNER") {
         return next();

@@ -1,10 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const shop_middleware_1 = require("@/middleware/shop.middleware");
-const validation_middleware_1 = require("@/middleware/validation.middleware");
-const common_validate_1 = require("@/validation/common.validate");
-const calendar_controller_1 = require("@/controller/calendar/calendar.controller");
+const shop_middleware_1 = require("../../middleware/shop.middleware");
+const validation_middleware_1 = require("../../middleware/validation.middleware");
+const common_validate_1 = require("../../validation/common.validate");
+const calendar_controller_1 = require("../../controller/calendar/calendar.controller");
 const calendarRouter = (0, express_1.Router)({ mergeParams: true });
 calendarRouter.use((0, shop_middleware_1.requireShopAccess)("STAFF"));
 calendarRouter.get("/slots", (0, validation_middleware_1.validate)({ query: common_validate_1.calendarSlotsQuerySchema }), calendar_controller_1.getAvailableSlotsController);

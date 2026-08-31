@@ -2,8 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.errorHandler = exports.notFoundHandler = void 0;
 const zod_1 = require("zod");
-const ApiError_1 = require("@/utils/ApiError");
-const apiResponse_1 = require("@/utils/apiResponse");
+const ApiError_1 = require("../utils/ApiError");
+const apiResponse_1 = require("../utils/apiResponse");
 const notFoundHandler = (req, res) => {
     return (0, apiResponse_1.sendError)(res, 404, `Route not found: ${req.method} ${req.originalUrl}`, {
         code: "ROUTE_NOT_FOUND",

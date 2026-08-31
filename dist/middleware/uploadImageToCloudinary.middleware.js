@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.uploadServiceImage = exports.uploadImageToCloudinary = void 0;
-const cloudinary_1 = require("@/utils/cloudinary");
+const cloudinary_1 = require("../utils/cloudinary");
 const uploadImageToCloudinary = (folder) => {
     return async (req, res, next) => {
         try {

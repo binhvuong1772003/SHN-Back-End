@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getExpiresAt = exports.hashToken = exports.generateOpaqueToken = exports.verifyRefreshToken = exports.verifyAccessToken = exports.signRefreshToken = exports.signAccessToken = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
-const jwt_1 = require("@/config/jwt");
+const jwt_1 = require("../config/jwt");
 const crypto_1 = __importDefault(require("crypto"));
 /**
  * ==============================

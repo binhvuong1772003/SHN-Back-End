@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.googleLogoutController = exports.googleCallbackController = exports.googleLoginController = void 0;
-const googleOauth_service_1 = require("@/service/auth/googleOauth.service");
-const auth_service_1 = require("@/service/auth/auth.service");
-const apiResponse_1 = require("@/utils/apiResponse");
+const googleOauth_service_1 = require("../service/auth/googleOauth.service");
+const auth_service_1 = require("../service/auth/auth.service");
+const apiResponse_1 = require("../utils/apiResponse");
 const googleLoginController = (req, res, next) => {
     const state = (0, googleOauth_service_1.generateOAuthStateService)();
     req.session.oauthState = state;

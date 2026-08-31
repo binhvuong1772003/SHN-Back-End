@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.metricsMiddleware = void 0;
-const redisMetrics_1 = require("@/observability/redisMetrics");
+const redisMetrics_1 = require("../observability/redisMetrics");
 const metricsMiddleware = (req, res, next) => {
     const startedAt = process.hrtime.bigint();
     (0, redisMetrics_1.startHttpRequest)();

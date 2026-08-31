@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getStaffListByShopController = exports.getStaffDetailController = exports.getStaffScheduleController = exports.deleteStaffScheduleController = exports.updateStaffScheduleController = exports.updateStaffInfoController = exports.acceptInviteController = exports.inviteStaffController = void 0;
-const ApiError_1 = require("@/utils/ApiError");
-const staff_service_1 = require("@/service/staff/staff.service");
-const apiResponse_1 = require("@/utils/apiResponse");
+const ApiError_1 = require("../../utils/ApiError");
+const staff_service_1 = require("../../service/staff/staff.service");
+const apiResponse_1 = require("../../utils/apiResponse");
 const inviteStaffController = async (req, res, next) => {
     try {
         console.log("body:", req.body);

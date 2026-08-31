@@ -2,8 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.emailWorker = void 0;
 const bullmq_1 = require("bullmq");
-const redis_1 = require("@/config/redis");
-const auth_service_1 = require("@/service/auth/auth.service");
+const redis_1 = require("../config/redis");
+const auth_service_1 = require("../service/auth/auth.service");
 const EMAIL_QUEUE_NAME = "email";
 const SEND_VERIFICATION_EMAIL_JOB = "sendVerificationEmail";
 const processEmailJob = async (job) => {

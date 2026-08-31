@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getTopCustomerController = void 0;
-const customer_service_1 = require("@/service/customer/customer.service");
-const apiResponse_1 = require("@/utils/apiResponse");
+const customer_service_1 = require("../../service/customer/customer.service");
+const apiResponse_1 = require("../../utils/apiResponse");
 const getTopCustomerController = async (req, res, next) => {
     try {
         const shopSlug = req.params.shopSlug;

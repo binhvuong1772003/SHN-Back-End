@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.clearServiceListCache = exports.clearStaffListCache = exports.clearStaffScheduleCache = void 0;
-const redis_1 = require("@/config/redis");
-const cacheKeys_1 = require("@/cache/cacheKeys");
+const redis_1 = require("../config/redis");
+const cacheKeys_1 = require("../cache/cacheKeys");
 const clearStaffScheduleCache = async (shopId, staffId) => {
     await redis_1.redisConnection.del((0, cacheKeys_1.staffScheduleCacheKey)(shopId, staffId));
 };

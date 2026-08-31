@@ -4,14 +4,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getMonthAvailability = exports.getAppointmentsWithSlots = exports.getTimeSlots = exports.getAllSlots = exports.getAvailableSlots = exports.validateBookingSlot = void 0;
-const prisma_1 = require("@/db/prisma");
-const ApiError_1 = require("@/utils/ApiError");
+const prisma_1 = require("../../db/prisma");
+const ApiError_1 = require("../../utils/ApiError");
 const dayjs_1 = __importDefault(require("dayjs"));
 const utc_1 = __importDefault(require("dayjs/plugin/utc"));
 const timezone_1 = __importDefault(require("dayjs/plugin/timezone"));
 dayjs_1.default.extend(utc_1.default);
 dayjs_1.default.extend(timezone_1.default);
-const slot_helper_1 = require("@/helper/slot.helper");
+const slot_helper_1 = require("../../helper/slot.helper");
 const validateBookingSlot = async (input) => {
     const { shopSlug, date, startTime, durationMin, staffId } = input;
     const shop = await prisma_1.db.shop.findUnique({

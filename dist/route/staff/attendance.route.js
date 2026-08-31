@@ -1,12 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const authenticate_middleware_1 = require("@/middleware/authenticate.middleware");
-const shop_middleware_1 = require("@/middleware/shop.middleware");
-const validation_middleware_1 = require("@/middleware/validation.middleware");
-const attendance_validate_1 = require("@/validation/attendance.validate");
-const common_validate_1 = require("@/validation/common.validate");
-const attendace_controller_1 = require("@/controller/staff/attendace.controller");
+const authenticate_middleware_1 = require("../../middleware/authenticate.middleware");
+const shop_middleware_1 = require("../../middleware/shop.middleware");
+const validation_middleware_1 = require("../../middleware/validation.middleware");
+const attendance_validate_1 = require("../../validation/attendance.validate");
+const common_validate_1 = require("../../validation/common.validate");
+const attendace_controller_1 = require("../../controller/staff/attendace.controller");
 const attendanceRouter = (0, express_1.Router)({ mergeParams: true });
 attendanceRouter.use(authenticate_middleware_1.authenticate);
 attendanceRouter.get("/qr/check-in", (0, shop_middleware_1.requireShopAccess)("MANAGER"), attendace_controller_1.getCheckInQRController);

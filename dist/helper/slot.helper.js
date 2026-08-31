@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.checkSlotAvailability = exports.filterAvailableSlots = exports.isStaffAvailable = exports.generateSlots = exports.addMinutesToTime = exports.minutesToTime = exports.timeToMinutes = exports.getAppointmentsWithGridPosition = exports.getBusyAppointments = void 0;
 // helpers/slot.helper.ts
-const prisma_1 = require("@/db/prisma");
+const prisma_1 = require("../db/prisma");
 const getBusyAppointments = async (shopId, date, staffId) => {
     // Convert ShopStaff.id to userId if staffId provided (Appointment.staffId references User.id)
     let userId = undefined;

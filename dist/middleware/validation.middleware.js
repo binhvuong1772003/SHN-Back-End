@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.validate = void 0;
 const zod_1 = require("zod");
-const ApiError_1 = require("@/utils/ApiError");
+const ApiError_1 = require("../utils/ApiError");
 const validate = (schema) => {
     return async (req, _res, next) => {
         const targets = typeof schema.parseAsync === "function"

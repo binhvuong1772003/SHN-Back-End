@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getTopCustomer = void 0;
-const prisma_1 = require("@/db/prisma");
-const ApiError_1 = require("@/utils/ApiError");
+const prisma_1 = require("../../db/prisma");
+const ApiError_1 = require("../../utils/ApiError");
 const getTopCustomer = async (shopSlug, limit = 5) => {
     const shop = await prisma_1.db.shop.findUnique({ where: { slug: shopSlug } });
     if (!shop)
@@ -13,7 +13,7 @@ const getTopCustomer = async (shopSlug, limit = 5) => {
             {
                 $match: {
                     shopId: { $oid: shop.id },
-                    status: { $in: ["CONFIRMED", "DONE"] },
+                    status: { $in: ["CONFIRMED", "COMPLETED"] },
                 },
             },
             {

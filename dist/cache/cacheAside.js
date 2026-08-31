@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.cacheAside = void 0;
-const redis_1 = require("@/config/redis");
-const cacheConfig_1 = require("@/cache/cacheConfig");
-const redisMetrics_1 = require("@/observability/redisMetrics");
+const redis_1 = require("../config/redis");
+const cacheConfig_1 = require("../cache/cacheConfig");
+const redisMetrics_1 = require("../observability/redisMetrics");
 /**
  * Read-through cache-aside helper. Redis failures never prevent the source
  * loader from returning data, so caching remains an optimization only.

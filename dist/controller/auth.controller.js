@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getMeController = exports.logoutController = exports.refresthTokenController = exports.loginWithEmailController = exports.verifyEmailController = exports.reSendEmailVerifyController = exports.registerWithEmailController = void 0;
-const auth_service_1 = require("@/service/auth/auth.service");
-const ApiError_1 = require("@/utils/ApiError");
-const apiResponse_1 = require("@/utils/apiResponse");
+const auth_service_1 = require("../service/auth/auth.service");
+const ApiError_1 = require("../utils/ApiError");
+const apiResponse_1 = require("../utils/apiResponse");
 const registerWithEmailController = async (req, res, next) => {
     try {
         const input = req.body;

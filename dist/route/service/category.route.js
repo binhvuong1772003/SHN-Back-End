@@ -1,10 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const validation_middleware_1 = require("@/middleware/validation.middleware");
-const service_validate_1 = require("@/validation/service.validate");
-const common_validate_1 = require("@/validation/common.validate");
-const category_controller_1 = require("@/controller/service/category.controller");
+const validation_middleware_1 = require("../../middleware/validation.middleware");
+const service_validate_1 = require("../../validation/service.validate");
+const common_validate_1 = require("../../validation/common.validate");
+const category_controller_1 = require("../../controller/service/category.controller");
 const categoryRouter = (0, express_1.Router)({ mergeParams: true });
 categoryRouter.post('/categories', (0, validation_middleware_1.validate)({ body: service_validate_1.createCategorySchema }), category_controller_1.createCategoryController);
 categoryRouter.get('/categories', category_controller_1.getCategoriesController);

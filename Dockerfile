@@ -1,4 +1,10 @@
-FROM node:20-bookworm-slim AS dependencies
+FROM node:20-bookworm-slim AS base
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+FROM base AS dependencies
 
 WORKDIR /app
 
@@ -16,7 +22,7 @@ COPY src ./src
 RUN npm run build
 RUN npm prune --omit=dev
 
-FROM node:20-bookworm-slim AS production
+FROM base AS production
 
 WORKDIR /app
 

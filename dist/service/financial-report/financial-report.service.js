@@ -7,8 +7,8 @@ exports.getFinancialReportService = void 0;
 const dayjs_1 = __importDefault(require("dayjs"));
 const timezone_1 = __importDefault(require("dayjs/plugin/timezone"));
 const utc_1 = __importDefault(require("dayjs/plugin/utc"));
-const prisma_1 = require("@/db/prisma");
-const ApiError_1 = require("@/utils/ApiError");
+const prisma_1 = require("../../db/prisma");
+const ApiError_1 = require("../../utils/ApiError");
 dayjs_1.default.extend(utc_1.default);
 dayjs_1.default.extend(timezone_1.default);
 const sum = (values) => values.reduce((total, value) => total + value, 0);
@@ -40,7 +40,7 @@ const aggregatePeriod = async (shopId, period, shopTimezone) => {
         prisma_1.db.appointment.findMany({
             where: {
                 shopId,
-                status: "DONE",
+                status: "COMPLETED",
                 date: { gte: period.start, lt: period.endExclusive },
                 payment: { is: { status: "PAID" } },
             },

@@ -1,11 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const googleOauth_controller_1 = require("@/controller/googleOauth.controller");
-const auth_controller_1 = require("@/controller/auth.controller");
-const authenticate_middleware_1 = require("@/middleware/authenticate.middleware");
-const validation_middleware_1 = require("@/middleware/validation.middleware");
-const auth_validate_1 = require("@/validation/auth.validate");
+const googleOauth_controller_1 = require("../controller/googleOauth.controller");
+const auth_controller_1 = require("../controller/auth.controller");
+const authenticate_middleware_1 = require("../middleware/authenticate.middleware");
+const validation_middleware_1 = require("../middleware/validation.middleware");
+const auth_validate_1 = require("../validation/auth.validate");
 // import { authenticate } from '@/middleware/auth.middleware';
 const router = (0, express_1.Router)();
 router.get('/google', googleOauth_controller_1.googleLoginController);

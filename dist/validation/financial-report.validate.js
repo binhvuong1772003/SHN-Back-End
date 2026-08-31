@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.financialReportQuerySchema = void 0;
 const zod_1 = require("zod");
-const common_validate_1 = require("@/validation/common.validate");
+const common_validate_1 = require("../validation/common.validate");
 exports.financialReportQuerySchema = zod_1.z
     .object({
     periodStart: common_validate_1.dateOnlySchema,

@@ -7,8 +7,8 @@ exports.getMyPayrollDetailService = exports.getMyPayrollsService = exports.payPa
 const dayjs_1 = __importDefault(require("dayjs"));
 const utc_1 = __importDefault(require("dayjs/plugin/utc"));
 const timezone_1 = __importDefault(require("dayjs/plugin/timezone"));
-const prisma_1 = require("@/db/prisma");
-const ApiError_1 = require("@/utils/ApiError");
+const prisma_1 = require("../../db/prisma");
+const ApiError_1 = require("../../utils/ApiError");
 dayjs_1.default.extend(utc_1.default);
 dayjs_1.default.extend(timezone_1.default);
 const toAuditJson = (value) => JSON.parse(JSON.stringify(value));
@@ -122,7 +122,7 @@ const calculateDraftForStaff = async (shop, staff, periodStart, periodEnd, query
                 shopId: shop.id,
                 staffId: staff.userId,
                 date: { gte: periodStart, lte: queryEnd },
-                status: "DONE",
+                status: "COMPLETED",
                 payment: { is: { status: "PAID" } },
             },
             include: { services: true },

@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.countServiceController = exports.updateServiceController = exports.deleteServiceController = exports.getServiceByIdController = exports.getSerivceController = exports.createServiceController = void 0;
-const service_service_1 = require("@/service/service/service.service");
-const apiResponse_1 = require("@/utils/apiResponse");
+const service_service_1 = require("../../service/service/service.service");
+const apiResponse_1 = require("../../utils/apiResponse");
 const createServiceController = async (req, res, next) => {
     try {
         const data = req.body;

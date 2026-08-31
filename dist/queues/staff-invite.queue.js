@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.staffInviteQueue = exports.SEND_STAFF_INVITE_EMAIL_JOB = exports.STAFF_INVITE_QUEUE_NAME = void 0;
 const bullmq_1 = require("bullmq");
-const redis_1 = require("@/config/redis");
+const redis_1 = require("../config/redis");
 exports.STAFF_INVITE_QUEUE_NAME = "staff-invite";
 exports.SEND_STAFF_INVITE_EMAIL_JOB = "sendStaffInviteEmail";
 exports.staffInviteQueue = new bullmq_1.Queue(exports.STAFF_INVITE_QUEUE_NAME, {

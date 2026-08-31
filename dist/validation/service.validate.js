@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateAddonSchema = exports.createAddonSchema = exports.updateServicePackageSchema = exports.createServicePackageSchema = exports.updateServiceOptionSchema = exports.createServiceOptionSchema = exports.updateServiceSchema = exports.createServiceSchema = exports.updateCategorySchema = exports.createCategorySchema = void 0;
 // validation/service.validate.ts
 const zod_1 = require("zod");
-const common_validate_1 = require("@/validation/common.validate");
+const common_validate_1 = require("../validation/common.validate");
 exports.createCategorySchema = zod_1.z.object({
     name: zod_1.z.string().min(1, "Category name is required").max(100),
     imageUrl: zod_1.z.string().url("Invalid URL").optional(),

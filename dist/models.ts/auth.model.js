@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteVerifyToken = exports.findVerifyToken = exports.createVerifyToken = exports.updateRefreshToken = exports.createUser = exports.findUserByEmail = exports.findUserById = void 0;
-const prisma_1 = require("@/db/prisma");
+const prisma_1 = require("../db/prisma");
 const findUserById = (id) => {
     return prisma_1.db.user.findUnique({
         where: { id },

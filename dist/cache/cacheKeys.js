@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.serviceListCachePattern = exports.staffListCachePattern = exports.staffScheduleCacheKey = exports.serviceListCacheKey = exports.staffListCacheKey = void 0;
-const cacheConfig_1 = require("@/cache/cacheConfig");
+const cacheConfig_1 = require("../cache/cacheConfig");
 const staffListCacheKey = (shopSlug, query, dateKey) => {
     const normalizedQuery = {
         page: query.page ?? 1,

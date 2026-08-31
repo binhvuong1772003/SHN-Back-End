@@ -1,11 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.countService = exports.updateService = exports.deleteService = exports.getServiceById = exports.getService = exports.createService = void 0;
-const prisma_1 = require("@/db/prisma");
-const cacheKeys_1 = require("@/cache/cacheKeys");
-const cacheInvalidation_1 = require("@/cache/cacheInvalidation");
-const cacheAside_1 = require("@/cache/cacheAside");
-const ApiError_1 = require("@/utils/ApiError");
+const prisma_1 = require("../../db/prisma");
+const cacheKeys_1 = require("../../cache/cacheKeys");
+const cacheInvalidation_1 = require("../../cache/cacheInvalidation");
+const cacheAside_1 = require("../../cache/cacheAside");
+const ApiError_1 = require("../../utils/ApiError");
 const createService = async (data, shopSlug) => {
     const shop = await prisma_1.db.shop.findUnique({
         where: { slug: shopSlug },

@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.adjustAttendanceController = exports.getShopAttendanceController = exports.getMyAttendanceHistoryController = exports.getMyTodayAttendanceController = exports.manualAttendanceController = exports.getCheckOutQRController = exports.getCheckInQRController = exports.qrCheckOutController = exports.qrCheckInController = void 0;
-const attendance_service_1 = require("@/service/staff/attendance.service");
-const apiResponse_1 = require("@/utils/apiResponse");
+const attendance_service_1 = require("../../service/staff/attendance.service");
+const apiResponse_1 = require("../../utils/apiResponse");
 const qrCheckInController = async (req, res, next) => {
     try {
         const attendance = await (0, attendance_service_1.qrCheckInService)(req.body.qrToken, req.params.shopSlug, req.user.userId);

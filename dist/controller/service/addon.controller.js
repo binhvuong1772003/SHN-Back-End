@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteAddonController = exports.updateAddonController = exports.getAddonByIdController = exports.getAddonsController = exports.createAddonController = void 0;
-const addon_service_1 = require("@/service/service/addon.service");
-const apiResponse_1 = require("@/utils/apiResponse");
+const addon_service_1 = require("../../service/service/addon.service");
+const apiResponse_1 = require("../../utils/apiResponse");
 const createAddonController = async (req, res, next) => {
     try {
         const shopSlug = req.params.shopSlug;

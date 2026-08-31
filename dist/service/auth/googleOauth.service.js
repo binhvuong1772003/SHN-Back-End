@@ -4,11 +4,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.revokeGoogleToken = exports.handleGoogleCallbackService = exports.upsertGoogleAccountService = exports.getGoogleUserInfo = exports.exchangeCodeForGoogleTokenService = exports.generateOAuthStateService = exports.generateGoogleUrlService = void 0;
-const google_config_1 = __importDefault(require("@/config/google.config"));
-const ApiError_1 = require("@/utils/ApiError");
+const google_config_1 = __importDefault(require("../../config/google.config"));
+const ApiError_1 = require("../../utils/ApiError");
 const axios_1 = __importDefault(require("axios"));
 const crypto_1 = __importDefault(require("crypto"));
-const prisma_1 = require("@/db/prisma");
+const prisma_1 = require("../../db/prisma");
 const client_1 = require("@prisma/client");
 const auth_service_1 = require("./auth.service");
 const generateGoogleUrlService = (state) => {

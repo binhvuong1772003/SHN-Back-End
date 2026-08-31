@@ -2,9 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.staffInviteWorker = void 0;
 const bullmq_1 = require("bullmq");
-const redis_1 = require("@/config/redis");
-const mailer_1 = require("@/utils/mailer");
-const staff_invite_queue_1 = require("@/queues/staff-invite.queue");
+const redis_1 = require("../config/redis");
+const mailer_1 = require("../utils/mailer");
+const staff_invite_queue_1 = require("../queues/staff-invite.queue");
 const processStaffInviteJob = async (job) => {
     if (job.name !== staff_invite_queue_1.SEND_STAFF_INVITE_EMAIL_JOB) {
         throw new Error(`Unknown staff invite job: ${job.name}`);

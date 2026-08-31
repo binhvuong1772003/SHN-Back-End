@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.authenticate = void 0;
-const jwt_1 = require("@/utils/jwt");
-const ApiError_1 = require("@/utils/ApiError");
-const prisma_1 = require("@/db/prisma");
+const jwt_1 = require("../utils/jwt");
+const ApiError_1 = require("../utils/ApiError");
+const prisma_1 = require("../db/prisma");
 const authenticate = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
