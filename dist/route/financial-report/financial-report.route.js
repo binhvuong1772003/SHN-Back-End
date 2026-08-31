@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const authenticate_middleware_1 = require("@/middleware/authenticate.middleware");
+const shop_middleware_1 = require("@/middleware/shop.middleware");
+const validation_middleware_1 = require("@/middleware/validation.middleware");
+const financial_report_controller_1 = require("@/controller/financial-report/financial-report.controller");
+const financial_report_validate_1 = require("@/validation/financial-report.validate");
+const financialReportRouter = (0, express_1.Router)({ mergeParams: true });
+financialReportRouter.use(authenticate_middleware_1.authenticate);
+financialReportRouter.get("/", (0, shop_middleware_1.requireShopAccess)("MANAGER"), (0, validation_middleware_1.validate)({ query: financial_report_validate_1.financialReportQuerySchema }), financial_report_controller_1.getFinancialReportController);
+exports.default = financialReportRouter;

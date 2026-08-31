@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.googleLogoutController = exports.googleCallbackController = exports.googleLoginController = void 0;
 const googleOauth_service_1 = require("@/service/auth/googleOauth.service");
 const auth_service_1 = require("@/service/auth/auth.service");
+const apiResponse_1 = require("@/utils/apiResponse");
 const googleLoginController = (req, res, next) => {
     const state = (0, googleOauth_service_1.generateOAuthStateService)();
     req.session.oauthState = state;
@@ -15,21 +16,16 @@ const googleCallbackController = async (req, res, next) => {
     try {
         const { code, state, error } = req.query;
         if (error) {
-            return res.status(400).json({
-                message: 'Google login failed',
-                error,
-            });
+            return (0, apiResponse_1.sendError)(res, 400, 'Google login failed', { code: 'GOOGLE_LOGIN_FAILED', details: error });
         }
         if (typeof state !== 'string') {
-            return res.status(400).json({ message: 'Invalid State', error });
+            return (0, apiResponse_1.sendError)(res, 400, 'Invalid State', { code: 'INVALID_OAUTH_STATE' });
         }
         if (!req.session.oauthState || req.session.oauthState !== state) {
-            return res.status(400).json({ message: 'Invalid State', error });
+            return (0, apiResponse_1.sendError)(res, 400, 'Invalid State', { code: 'INVALID_OAUTH_STATE' });
         }
         if (typeof code !== 'string') {
-            return res
-                .status(400)
-                .json({ message: 'Missing authorization code', error });
+            return (0, apiResponse_1.sendError)(res, 400, 'Missing authorization code', { code: 'MISSING_AUTHORIZATION_CODE' });
         }
         delete req.session.oauthState;
         const meta = {
@@ -41,7 +37,7 @@ const googleCallbackController = async (req, res, next) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'none',
-            maxAge: 60 * 1000, // 1 phút thôi
+            maxAge: 60 * 1000, // Expires after one minute.
         });
         console.log('FRONTEND_URL:', process.env.FRONTEND_URL);
         console.log('cookies:', req.cookies);
@@ -56,16 +52,16 @@ const googleLogoutController = async (req, res, next) => {
     try {
         const userId = req.user?.userId;
         if (!userId) {
-            return res.status(401).json({ message: 'Unauthorized' });
+            return (0, apiResponse_1.sendError)(res, 401, 'Unauthorized', { code: 'UNAUTHORIZED' });
         }
         const { refreshToken } = req.body;
         // Revoke Google access token
         await (0, googleOauth_service_1.revokeGoogleToken)(userId);
-        // Revoke app refresh token (tái sử dụng logoutService)
+        // Revoke the app refresh token through logoutService.
         if (refreshToken) {
             await (0, auth_service_1.logoutService)(refreshToken);
         }
-        res.json({ message: 'Đăng xuất thành công' });
+        (0, apiResponse_1.sendSuccess)(res, null, { message: 'Logout successful' });
     }
     catch (err) {
         next(err);

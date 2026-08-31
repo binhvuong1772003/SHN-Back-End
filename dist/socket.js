@@ -13,7 +13,7 @@ const initSocket = (httpServer) => {
     io.on('connection', (socket) => {
         socket.on('join', (userId) => {
             socket.join(userId);
-            console.log(`✅ User ${userId} joined room`); // thêm dòng này
+            console.log(`✅ User ${userId} joined room`);
         });
         socket.on('join_shop', (shopId) => {
             socket.join(`shop:${shopId}`);

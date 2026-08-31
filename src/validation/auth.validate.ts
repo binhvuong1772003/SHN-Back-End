@@ -15,13 +15,21 @@ export const loginSchema = {
   }),
 };
 
+export const emailVerificationQuerySchema = {
+  query: z.object({ token: z.string().min(1, "Verification token is required") }),
+};
+
+export const resendVerificationSchema = {
+  body: z.object({ email: z.string().email("Invalid email address") }),
+};
+
 export const refreshTokenSchema = {
   body: z.object({
     refreshToken: z.string(),
   }),
 };
 
-// Type inference - lấy từ body
+// Infer the request body type.
 export type RegisterInput = z.infer<typeof registerSchema.body>;
 export type LoginInput = z.infer<typeof loginSchema.body>;
 export type RefreshInput = z.infer<typeof refreshTokenSchema.body>;

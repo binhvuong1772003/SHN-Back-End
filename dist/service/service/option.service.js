@@ -10,7 +10,7 @@ const createServiceOption = async (data, shopSlug, serviceId) => {
         },
     });
     if (!shop)
-        throw new ApiError_1.ApiError(404, 'Shop không tồn tại');
+        throw new ApiError_1.ApiError(404, "Shop not found");
     const service = await prisma_1.db.service.findUnique({
         where: {
             id: serviceId,
@@ -18,7 +18,7 @@ const createServiceOption = async (data, shopSlug, serviceId) => {
         },
     });
     if (!service)
-        throw new ApiError_1.ApiError(404, 'Service không tồn tại');
+        throw new ApiError_1.ApiError(404, "Service not found");
     const { values, ...rest } = data;
     const result = await prisma_1.db.serviceOption.create({
         data: {
@@ -39,7 +39,7 @@ const getServiceOptions = async (serviceId, shopSlug) => {
         },
     });
     if (!shop)
-        throw new ApiError_1.ApiError(404, 'Shop không tồn tại');
+        throw new ApiError_1.ApiError(404, "Shop not found");
     const service = await prisma_1.db.service.findUnique({
         where: {
             id: serviceId,
@@ -47,7 +47,7 @@ const getServiceOptions = async (serviceId, shopSlug) => {
         },
     });
     if (!service)
-        throw new ApiError_1.ApiError(404, 'Service không tồn tại');
+        throw new ApiError_1.ApiError(404, "Service not found");
     const result = await prisma_1.db.serviceOption.findMany({
         where: {
             serviceId,
@@ -64,7 +64,7 @@ const getServiceOptionById = async (optionId, shopSlug, serviceId) => {
         },
     });
     if (!shop)
-        throw new ApiError_1.ApiError(404, 'Shop không tồn tại');
+        throw new ApiError_1.ApiError(404, "Shop not found");
     const service = await prisma_1.db.service.findUnique({
         where: {
             id: serviceId,
@@ -72,7 +72,7 @@ const getServiceOptionById = async (optionId, shopSlug, serviceId) => {
         },
     });
     if (!service)
-        throw new ApiError_1.ApiError(404, 'Service không tồn tại');
+        throw new ApiError_1.ApiError(404, "Service not found");
     const option = await prisma_1.db.serviceOption.findUnique({
         where: {
             id: optionId,
@@ -80,7 +80,7 @@ const getServiceOptionById = async (optionId, shopSlug, serviceId) => {
         include: { values: true },
     });
     if (!option)
-        throw new ApiError_1.ApiError(404, 'Option không tồn tại');
+        throw new ApiError_1.ApiError(404, "Option not found");
     return option;
 };
 exports.getServiceOptionById = getServiceOptionById;
@@ -91,7 +91,7 @@ const updateServiceOptionController = async (data, shopSlug, serviceId, optionId
         },
     });
     if (!shop)
-        throw new ApiError_1.ApiError(404, 'Shop không tồn tại');
+        throw new ApiError_1.ApiError(404, "Shop not found");
     const service = await prisma_1.db.service.findUnique({
         where: {
             id: serviceId,
@@ -99,7 +99,7 @@ const updateServiceOptionController = async (data, shopSlug, serviceId, optionId
         },
     });
     if (!service)
-        throw new ApiError_1.ApiError(404, 'Service không tồn tại');
+        throw new ApiError_1.ApiError(404, "Service not found");
     const option = await prisma_1.db.serviceOption.findUnique({
         where: {
             id: optionId,
@@ -107,10 +107,12 @@ const updateServiceOptionController = async (data, shopSlug, serviceId, optionId
         },
     });
     if (!option)
-        throw new ApiError_1.ApiError(404, 'Option không tồn tại');
+        throw new ApiError_1.ApiError(404, "Option not found");
+    const { values: _values, ...optionData } = data;
+    void _values;
     const result = await prisma_1.db.serviceOption.update({
         where: { id: optionId },
-        data: data,
+        data: optionData,
         include: { values: true },
     });
     return result;
@@ -123,7 +125,7 @@ const deleteServiceOption = async (shopSlug, serviceId, optionId) => {
         },
     });
     if (!shop)
-        throw new ApiError_1.ApiError(404, 'Shop không tồn tại');
+        throw new ApiError_1.ApiError(404, "Shop not found");
     const service = await prisma_1.db.service.findUnique({
         where: {
             id: serviceId,
@@ -131,7 +133,7 @@ const deleteServiceOption = async (shopSlug, serviceId, optionId) => {
         },
     });
     if (!service)
-        throw new ApiError_1.ApiError(404, 'Service không tồn tại');
+        throw new ApiError_1.ApiError(404, "Service not found");
     const option = await prisma_1.db.serviceOption.findUnique({
         where: {
             id: optionId,
@@ -139,7 +141,7 @@ const deleteServiceOption = async (shopSlug, serviceId, optionId) => {
         },
     });
     if (!option)
-        throw new ApiError_1.ApiError(404, 'Option không tồn tại');
+        throw new ApiError_1.ApiError(404, "Option not found");
     const result = await prisma_1.db.serviceOption.delete({
         where: {
             id: optionId,

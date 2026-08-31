@@ -53,23 +53,23 @@ const createAppointment = async (data, customerId, shopSlug) => {
         })
         : [];
     if (serviceIds?.length && services.length !== serviceIds.length) {
-        throw new ApiError_1.ApiError(404, "Một số dịch vụ không tồn tại hoặc không khả dụng");
+        throw new ApiError_1.ApiError(404, "One or more services were not found or are unavailable");
     }
     if (packageIds?.length && packages.length !== packageIds.length) {
-        throw new ApiError_1.ApiError(404, "Một số gói dịch vụ không tồn tại hoặc không khả dụng");
+        throw new ApiError_1.ApiError(404, "One or more service packages were not found or are unavailable");
     }
     if (addonIds?.length && addons.length !== addonIds.length) {
-        throw new ApiError_1.ApiError(404, "Một số dịch vụ thêm không tồn tại hoặc không khả dụng");
+        throw new ApiError_1.ApiError(404, "One or more add-ons were not found or are unavailable");
     }
     if (services.length === 0 && packages.length === 0) {
-        throw new ApiError_1.ApiError(400, "Phải chọn ít nhất một dịch vụ hoặc gói dịch vụ");
+        throw new ApiError_1.ApiError(400, "At least one service or package is required");
     }
     // Validate required options are selected
     for (const service of services) {
         if (service.options && service.options.length > 0) {
             const serviceOptionData = serviceOptions?.find((so) => so.serviceId === service.id);
             if (!serviceOptionData || serviceOptionData.optionValueIds.length === 0) {
-                throw new ApiError_1.ApiError(400, `Dịch vụ "${service.name}" yêu cầu chọn tùy chọn`);
+                throw new ApiError_1.ApiError(400, `Service "${service.name}" requires an option selection`);
             }
         }
     }
@@ -82,7 +82,7 @@ const createAppointment = async (data, customerId, shopSlug) => {
     // Add addon durations
     totalDuration += addons.reduce((sum, a) => sum + (a.duration ?? 0), 0);
     if (totalDuration < 15) {
-        throw new ApiError_1.ApiError(400, "Thời gian dịch vụ phải ít nhất 15 phút");
+        throw new ApiError_1.ApiError(400, "Service duration must be at least 15 minutes");
     }
     // Calculate endTime and validate slot
     const endTime = (0, slot_helper_1.addMinutesToTime)(startTime, totalDuration);
@@ -102,7 +102,7 @@ const createAppointment = async (data, customerId, shopSlug) => {
     //     where: { id: staffId, shopId: shop.id, isActive: true },
     //   });
     //   if (!shopStaff) {
-    //     throw new ApiError(404, "Staff không tồn tại");
+    //     throw new ApiError(404, "Staff not found");
     //   }
     //   assignedUserId = shopStaff.userId;
     // }
@@ -188,8 +188,8 @@ const createAppointment = async (data, customerId, shopSlug) => {
     console.log("🔌 Connected sockets:", (0, socket_1.getIO)().sockets.adapter.rooms);
     const notifications = await Promise.all(managers.map((m) => prisma_1.db.notification.create({
         data: {
-            title: "Yêu cầu nghỉ",
-            content: `${appointment?.customer.name} đã đặt lịch từ từ ${appointment.startTime} đến ${appointment.endTime} ngày ${appointmentDate}`,
+            title: "New appointment request",
+            content: `${appointment?.customer.name} booked an appointment from ${appointment.startTime} to ${appointment.endTime} on ${appointmentDate}`,
             type: "OFF_DAY_REQUEST",
             channel: "PUSH",
             shopId: shop.id,
@@ -200,7 +200,7 @@ const createAppointment = async (data, customerId, shopSlug) => {
         .to(`shop:${shop.id}`)
         .emit("appointment_request", {
         appointmentId: appointment.id,
-        message: `${appointment?.customer.name} đã đặt lịch từ từ ${appointment.startTime} đến ${appointment.endTime} ngày ${appointmentDate}`,
+        message: `${appointment?.customer.name} booked an appointment from ${appointment.startTime} to ${appointment.endTime} on ${appointmentDate}`,
         notificationId: notifications[0].id,
     });
     return appointment;
@@ -232,7 +232,7 @@ const getAppointmentsByShopId = async (shopSlug) => {
     });
 };
 exports.getAppointmentsByShopId = getAppointmentsByShopId;
-const getAppointmentsByDay = async (shopSlug, date) => {
+const getAppointmentsByDay = async (shopSlug, date, staffUserId) => {
     const shop = await prisma_1.db.shop.findUnique({
         where: { slug: shopSlug },
     });
@@ -243,6 +243,7 @@ const getAppointmentsByDay = async (shopSlug, date) => {
         where: {
             shopId: shop.id,
             date: appointmentDate,
+            ...(staffUserId ? { staffId: staffUserId } : {}),
         },
         include: {
             services: {

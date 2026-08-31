@@ -8,6 +8,7 @@ const dotenv_1 = __importDefault(require("dotenv"));
 const http_1 = require("http");
 const app_1 = __importDefault(require("./app"));
 const socket_1 = require("./socket");
+require("@/jobs/attendance.job");
 dotenv_1.default.config();
 process.env.TZ = 'Asia/Ho_Chi_Minh';
 const PORT = process.env.PORT || 3000;

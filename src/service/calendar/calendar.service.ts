@@ -55,7 +55,7 @@ export const validateBookingSlot = async (input: ValidateBookingSlotInput) => {
   if (startMinutes < openMinutes || endMinutes > closeMinutes) {
     throw new ApiError(
       400,
-      `Shop chỉ mở cửa từ ${shop.openTime} đến ${shop.closeTime}`,
+      `Shop is open only from ${shop.openTime} to ${shop.closeTime}`,
     );
   }
 
@@ -67,26 +67,26 @@ export const validateBookingSlot = async (input: ValidateBookingSlotInput) => {
   );
 
   if (appointmentDate < today) {
-    throw new ApiError(400, "Không thể đặt lịch trong quá khứ");
+    throw new ApiError(400, "Appointments cannot be booked in the past");
   }
   if (appointmentDate > maxDate) {
     throw new ApiError(
       400,
-      `Chỉ đặt trước tối đa ${shop.settings?.maxAdvanceBookingDays ?? 15} ngày`,
+      `Appointments can only be booked up to ${shop.settings?.maxAdvanceBookingDays ?? 15} days in advance`,
     );
   }
 
   // Validate work day
   const dayOfWeek = dayjs.tz(date, shop.timezone).day();
   if (!shop.workDays.map((d) => (d === 7 ? 0 : d)).includes(dayOfWeek)) {
-    throw new ApiError(400, "Shop không làm việc ngày này");
+    throw new ApiError(400, "The shop is closed on this day");
   }
 
   // Check staff availability
   if (staffId) {
     // Validate ObjectID format
     if (!/^[0-9a-fA-F]{24}$/.test(staffId)) {
-      throw new ApiError(400, "staffId không hợp lệ");
+      throw new ApiError(400, "Invalid staffId");
     }
 
     const { available, reason } = await isStaffAvailable(
@@ -96,7 +96,7 @@ export const validateBookingSlot = async (input: ValidateBookingSlotInput) => {
       appointmentDate,
     );
     if (!available) {
-      throw new ApiError(400, reason || "Nhân viên không khả dụng");
+    throw new ApiError(400, reason || "Staff is unavailable");
     }
   }
 
@@ -110,7 +110,7 @@ export const validateBookingSlot = async (input: ValidateBookingSlotInput) => {
       staffId,
     );
   if (!slotAvailable) {
-    throw new ApiError(409, slotReason || "Slot không khả dụng");
+    throw new ApiError(409, slotReason || "Slot is unavailable");
   }
 
   return {
@@ -139,12 +139,12 @@ export const getAvailableSlots = async (input: GetAvailableSlotsInput) => {
   );
 
   if (appointmentDate < today) {
-    throw new ApiError(400, "Không thể xem lịch trong quá khứ");
+    throw new ApiError(400, "Past availability cannot be viewed");
   }
   if (appointmentDate > maxDate) {
     throw new ApiError(
       400,
-      `Chỉ xem lịch tối đa ${shop.settings?.maxAdvanceBookingDays ?? 15} ngày`,
+      `Availability can only be viewed up to ${shop.settings?.maxAdvanceBookingDays ?? 15} days in advance`,
     );
   }
 
@@ -155,7 +155,7 @@ export const getAvailableSlots = async (input: GetAvailableSlotsInput) => {
       date: appointmentDate,
       isWorkDay: false,
       slots: [],
-      message: "Shop không làm việc ngày này",
+      message: "The shop is closed on this day",
     };
   }
 
@@ -173,7 +173,7 @@ export const getAvailableSlots = async (input: GetAvailableSlotsInput) => {
         isWorkDay: true,
         staffAvailable: false,
         slots: [],
-        message: reason || "Nhân viên không khả dụng",
+        message: reason || "Staff is unavailable",
       };
     }
   }
@@ -233,12 +233,12 @@ export const getAllSlots = async (
   );
 
   if (appointmentDate < today) {
-    throw new ApiError(400, "Không thể xem lịch trong quá khứ");
+    throw new ApiError(400, "Past availability cannot be viewed");
   }
   if (appointmentDate > maxDate) {
     throw new ApiError(
       400,
-      `Chỉ xem lịch tối đa ${shop.settings?.maxAdvanceBookingDays ?? 15} ngày`,
+      `Availability can only be viewed up to ${shop.settings?.maxAdvanceBookingDays ?? 15} days in advance`,
     );
   }
 
@@ -249,7 +249,7 @@ export const getAllSlots = async (
       date: appointmentDate,
       isWorkDay: false,
       slots: [],
-      message: "Shop không làm việc ngày này",
+      message: "The shop is closed on this day",
     };
   }
 
@@ -287,7 +287,7 @@ export const getTimeSlots = async (shopSlug: string, date: string) => {
       date: appointmentDate,
       isWorkDay: false,
       slots: [],
-      message: "Shop không làm việc ngày này",
+      message: "The shop is closed on this day",
     };
   }
 
@@ -335,7 +335,7 @@ export const getAppointmentsWithSlots = async (
   const selectedDate = dayjs.tz(date, shop.timezone);
 
   if (!selectedDate.isValid()) {
-    throw new ApiError(400, "Ngày không hợp lệ");
+    throw new ApiError(400, "Invalid date");
   }
 
   const appointmentDate = selectedDate.startOf("day").toDate();
@@ -352,7 +352,7 @@ export const getAppointmentsWithSlots = async (
       isWorkDay: false,
       schedule: null,
       appointments: [],
-      message: "Shop không làm việc ngày này",
+      message: "The shop is closed on this day",
     };
   }
 

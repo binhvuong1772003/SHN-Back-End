@@ -4,6 +4,7 @@ import {
   markRead,
   deleteNotification,
 } from '@/service/notification/notification.service';
+import { sendSuccess } from '@/utils/apiResponse';
 export const getListNotificationController = async (
   req: Request,
   res: Response,
@@ -11,9 +12,9 @@ export const getListNotificationController = async (
 ) => {
   try {
     const shopSlug = req.params.shopSlug as string;
-    console.log('shopSlug:', shopSlug); // ← log xem có giá trị không
-    const result = await getListNotification(shopSlug);
-    res.status(200).json({ success: true, data: result });
+    console.log('shopSlug:', shopSlug);
+    const result = await getListNotification(shopSlug, req.query as unknown as { page?: number; limit?: number });
+    sendSuccess(res, result.items, { meta: result.meta });
   } catch (error) {
     next(error);
   }
@@ -26,7 +27,7 @@ export const markReadController = async (
   try {
     const id = req.params.id as string;
     const result = await markRead(id);
-    res.status(200).json({ success: true, data: result });
+    sendSuccess(res, result);
   } catch (error) {
     next(error);
   }
@@ -39,7 +40,7 @@ export const deleteNotificationController = async (
   try {
     const id = req.params.id as string;
     const result = await deleteNotification(id);
-    res.status(200).json({ success: true, data: result });
+    sendSuccess(res, result);
   } catch (error) {
     next(error);
   }

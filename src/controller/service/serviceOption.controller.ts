@@ -7,6 +7,7 @@ import {
   updateServiceOptionController,
   deleteServiceOption,
 } from '@/service/service/option.service';
+import { sendSuccess } from '@/utils/apiResponse';
 
 export const createServiceOptionController = async (
   req: Request,
@@ -17,7 +18,7 @@ export const createServiceOptionController = async (
     const shopSlug = req.params.shopSlug as string;
     const serviceId = req.params.serviceId as string;
     const result = await createServiceOption(req.body, shopSlug, serviceId);
-    res.status(201).json({ success: true, data: result });
+    sendSuccess(res, result, { statusCode: 201 });
   } catch (err) {
     next(err);
   }
@@ -33,7 +34,7 @@ export const getServiceOptionsController = async (
     console.log(shopSlug);
     const serviceId = req.params.serviceId as string;
     const result = await getServiceOptions(serviceId, shopSlug);
-    res.status(200).json({ success: true, data: result });
+    sendSuccess(res, result);
   } catch (err) {
     next(err);
   }
@@ -49,7 +50,7 @@ export const getServiceOptionByIdController = async (
     const serviceId = req.params.serviceId as string;
     const optionId = req.params.optionId as string;
     const result = await getServiceOptionById(optionId, shopSlug, serviceId);
-    res.status(200).json({ success: true, data: result });
+    sendSuccess(res, result);
   } catch (err) {
     next(err);
   }
@@ -70,7 +71,7 @@ export const updateServiceOptionCtrl = async (
       serviceId,
       optionId
     );
-    res.status(200).json({ success: true, data: result });
+    sendSuccess(res, result);
   } catch (err) {
     next(err);
   }
@@ -86,7 +87,7 @@ export const deleteServiceOptionController = async (
     const serviceId = req.params.serviceId as string;
     const optionId = req.params.optionId as string;
     await deleteServiceOption(shopSlug, serviceId, optionId);
-    res.status(200).json({ success: true, message: 'Xóa option thành công' });
+    sendSuccess(res, null, { message: 'Option deleted successfully' });
   } catch (err) {
     next(err);
   }

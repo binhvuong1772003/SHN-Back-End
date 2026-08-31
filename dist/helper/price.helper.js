@@ -10,15 +10,15 @@ const priceDiscountCalculate = async (subtotal, discount, promotionId) => {
             where: { id: promotionId },
         });
         if (!promotion)
-            throw new ApiError_1.ApiError(404, 'Mã khuyến mãi không tồn tại');
+            throw new ApiError_1.ApiError(404, 'Promotion not found');
         if (!promotion.isActive)
-            throw new ApiError_1.ApiError(400, 'Mã khuyến mãi không còn hiệu lực');
+            throw new ApiError_1.ApiError(400, 'Promotion is inactive');
         if (new Date() < promotion.startDate || new Date() > promotion.endDate)
-            throw new ApiError_1.ApiError(400, 'Mã khuyến mãi chưa hoặc đã hết hạn');
+            throw new ApiError_1.ApiError(400, 'Promotion is not currently valid');
         if (promotion.maxUses && promotion.usedCount >= promotion.maxUses)
-            throw new ApiError_1.ApiError(400, 'Mã khuyến mãi đã hết lượt sử dụng');
+            throw new ApiError_1.ApiError(400, 'Promotion usage limit has been reached');
         if (subtotal < promotion.minOrderAmount)
-            throw new ApiError_1.ApiError(400, `Đơn tối thiểu ${promotion.minOrderAmount}đ để dùng mã này`);
+            throw new ApiError_1.ApiError(400, `A minimum order amount of ${promotion.minOrderAmount} is required for this promotion`);
         if (promotion.type === 'PERCENT') {
             discountAmount = subtotal * (promotion.value / 100);
             if (promotion.maxDiscount)

@@ -13,12 +13,12 @@ const processStaffInviteJob = async (job) => {
     await mailer_1.transporter.sendMail({
         from: process.env.EMAIL_USER,
         to: email,
-        subject: `Bạn được mời tham gia ${shopName}`,
+        subject: `You have been invited to join ${shopName}`,
         html: `
-      <h2>Lời mời tham gia ${shopName}</h2>
-      <p>Vai trò: <strong>${role}</strong></p>
-      <a href="${inviteUrl}">Chấp nhận lời mời</a>
-      <p>Link hết hạn vào ${new Date(expiresAt).toLocaleString("vi-VN")}.</p>
+      <h2>Invitation to join ${shopName}</h2>
+      <p>Role: <strong>${role}</strong></p>
+      <a href="${inviteUrl}">Accept invitation</a>
+      <p>This link expires on ${new Date(expiresAt).toLocaleString("en-US")}.</p>
     `,
     });
     return { inviteId: job.data.inviteId };

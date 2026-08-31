@@ -20,6 +20,27 @@ export interface AuthTokens {
   refreshToken: string;
 }
 
+const revokeAllUserSessions = async (userId: string) => {
+  await db.user.update({
+    where: { id: userId },
+    data: { tokenVersion: { increment: 1 } },
+  });
+  await db.refreshToken.updateMany({
+    where: { userId },
+    data: { isRevoked: true },
+  });
+};
+
+const throwRefreshTokenReuseError = async (userId: string): Promise<never> => {
+  await revokeAllUserSessions(userId);
+  throw new ApiError(
+    401,
+    "Refresh token reuse detected; please sign in again",
+    undefined,
+    "TOKEN_REUSE_DETECTED",
+  );
+};
+
 const enqueueVerificationEmail = async (user: {
   id: string;
   email: string;
@@ -79,7 +100,16 @@ export const issueTokens = async (
   role: UserRole,
   meta: { deviceInfo?: string; ipAddress?: string },
 ): Promise<AuthTokens> => {
-  const accessToken = signAccessToken({ userId, role });
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { tokenVersion: true },
+  });
+  if (!user) throw new ApiError(401, "User not found");
+  const accessToken = signAccessToken({
+    userId,
+    role,
+    tokenVersion: user.tokenVersion,
+  });
   const rawRefreshToken = generateOpaqueToken();
 
   await db.refreshToken.create({
@@ -149,9 +179,9 @@ export const verifyEmailService = async (
     where: { token: hashToken(rawToken) },
     include: { user: true },
   });
-  if (!record) throw new ApiError(400, "Link xác thực không hợp lệ");
+  if (!record) throw new ApiError(400, "Invalid verification link");
   if (record.expiresAt < new Date())
-    throw new ApiError(400, "Link xác thực đã hết hạn");
+    throw new ApiError(400, "Verification link has expired");
   const user = await db.user.update({
     where: { id: record.userId },
     data: { isVerified: true },
@@ -162,8 +192,8 @@ export const verifyEmailService = async (
 };
 export const resendVerificationEmail = async (email: string) => {
   const user = await db.user.findUnique({ where: { email } });
-  if (!user) throw new ApiError(404, "Email không tồn tại");
-  if (user.isVerified) throw new ApiError(400, "Tài khoản đã được xác thực");
+  if (!user) throw new ApiError(404, "Email address not found");
+  if (user.isVerified) throw new ApiError(400, "Account is already verified");
   await enqueueVerificationEmail(user);
 };
 export const loginWithEmailService = async (
@@ -177,11 +207,11 @@ export const loginWithEmailService = async (
     },
   });
   if (!user || !user.passwordHash)
-    throw new ApiError(401, "Email hoặc Password không chính xác");
-  if (!user.isVerified) throw new ApiError(403, "Tài khoản chưa được xác thực");
+    throw new ApiError(401, "Invalid email or password");
+  if (!user.isVerified) throw new ApiError(403, "Account is not verified");
   const isPasswordValid = await bcrypt.compare(password, user.passwordHash!);
   if (!isPasswordValid)
-    throw new ApiError(401, "Email hoặc Password không chính xác");
+    throw new ApiError(401, "Invalid email or password");
   const token = await issueTokens(user.id, user.role, meta);
   const { passwordHash: _, ...safeUser } = user;
   return { user: safeUser, tokens: token };
@@ -203,13 +233,9 @@ export const refreshTokenService = async (
   const stored = await db.refreshToken.findUnique({
     where: { tokenHash: hashToken(rawToken) },
   });
-  if (!stored) throw new ApiError(401, "Refresh token không hợp lệ");
+  if (!stored) throw new ApiError(401, "Invalid refresh token");
   if (stored.isRevoked) {
-    await db.refreshToken.updateMany({
-      where: { userId: stored.userId },
-      data: { isRevoked: true },
-    });
-    throw new ApiError(401, "Phát hiện bất thường, vui lòng đăng nhập lại");
+    return throwRefreshTokenReuseError(stored.userId);
   }
   if (stored.expiresAt < new Date()) {
     await db.refreshToken.updateMany({
@@ -220,19 +246,24 @@ export const refreshTokenService = async (
         isRevoked: true,
       },
     });
-    throw new ApiError(401, "Token đã hết hạn");
+    throw new ApiError(401, "Token has expired");
   }
 
-  await db.refreshToken.updateMany({
+  const consumed = await db.refreshToken.updateMany({
     where: {
       tokenHash: stored.tokenHash,
+      isRevoked: false,
     },
     data: {
       isRevoked: true,
+      lastUsedAt: new Date(),
     },
   });
+  if (consumed.count !== 1) {
+    return throwRefreshTokenReuseError(stored.userId);
+  }
   const user = await db.user.findUnique({ where: { id: stored.userId } });
-  if (!user) throw new ApiError(401, "Người dùng không tồn tại");
+  if (!user) throw new ApiError(401, "User not found");
   const newToken = await issueTokens(stored.userId, user.role, meta);
   return newToken;
 };
@@ -248,6 +279,6 @@ export const getMeService = async (userId: string) => {
       role: true,
     },
   });
-  if (!user) throw new ApiError(404, "User không tồn tại");
+  if (!user) throw new ApiError(404, "User not found");
   return user;
 };

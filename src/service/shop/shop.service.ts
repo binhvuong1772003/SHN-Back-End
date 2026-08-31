@@ -14,7 +14,7 @@ export const createShopService = async (
   const existing = await db.shop.findUnique({
     where: { slug: data.slug },
   });
-  if (existing) throw new ApiError(400, "Shop đã tồn tại");
+  if (existing) throw new ApiError(400, "Shop already exists");
   const shop = await db.shop.create({
     data: {
       ...data,

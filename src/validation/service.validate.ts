@@ -1,14 +1,16 @@
 // validation/service.validate.ts
 import { z } from "zod";
+import { objectIdSchema } from "@/validation/common.validate";
 export const createCategorySchema = z.object({
-  name: z.string().min(1, "Tên category không được để trống").max(100),
-  imageUrl: z.string().url("URL không hợp lệ").optional(),
+  name: z.string().min(1, "Category name is required").max(100),
+  imageUrl: z.string().url("Invalid URL").optional(),
 });
+export const updateCategorySchema = createCategorySchema.partial();
 // ============================================================
 // OPTION VALUE
 // ============================================================
 const optionValueSchema = z.object({
-  id: z.string().optional(),
+  id: objectIdSchema.optional(),
   name: z.string().min(1).max(100),
   imageUrl: z.string().url().optional(),
   price: z.number().min(0),
@@ -21,7 +23,7 @@ const optionValueSchema = z.object({
 // SERVICE
 // ============================================================
 export const createServiceSchema = z.object({
-  categoryId: z.string().optional(),
+  categoryId: objectIdSchema.optional(),
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
   basePrice: z.number().min(0).optional(),
@@ -53,7 +55,7 @@ export const updateServiceSchema = z.object({
   options: z
     .array(
       z.object({
-        id: z.string().optional(),
+        id: objectIdSchema.optional(),
         name: z.string().min(1).max(100),
         isRequired: z.boolean().default(true),
         sortOrder: z.number().int().default(0),
@@ -64,7 +66,7 @@ export const updateServiceSchema = z.object({
   addons: z
     .array(
       z.object({
-        id: z.string().optional(),
+        id: objectIdSchema.optional(),
         name: z.string().min(1).max(100),
         price: z.number().min(0),
         duration: z.number().int().min(0).optional(),
@@ -73,9 +75,9 @@ export const updateServiceSchema = z.object({
       }),
     )
     .optional(),
-  deleteOptionIds: z.array(z.string()).optional(),
-  deleteValueIds: z.array(z.string()).optional(),
-  deleteAddonIds: z.array(z.string()).optional(),
+  deleteOptionIds: z.array(objectIdSchema).optional(),
+  deleteValueIds: z.array(objectIdSchema).optional(),
+  deleteAddonIds: z.array(objectIdSchema).optional(),
 });
 
 // ============================================================
@@ -94,13 +96,13 @@ export const updateServiceOptionSchema = createServiceOptionSchema.partial();
 // SERVICE PACKAGE
 // ============================================================
 const packageItemSchema = z.object({
-  serviceId: z.string(),
-  optionValueId: z.string().optional(),
+  serviceId: objectIdSchema,
+  optionValueId: objectIdSchema.optional(),
   isIncluded: z.boolean().default(true),
 });
 
 const packageAddonSchema = z.object({
-  optionValueId: z.string(),
+  addonId: objectIdSchema,
   extraPrice: z.number().min(0),
 });
 
@@ -117,6 +119,17 @@ export const createServicePackageSchema = z.object({
 });
 
 export const updateServicePackageSchema = createServicePackageSchema.partial();
+
+export const createAddonSchema = z.object({
+  name: z.string().min(1).max(100),
+  price: z.number().min(0),
+  duration: z.number().int().min(0).optional(),
+  serviceId: objectIdSchema.optional(),
+  isActive: z.boolean().default(true),
+  sortOrder: z.number().int().default(0),
+});
+
+export const updateAddonSchema = createAddonSchema.partial();
 
 // ============================================================
 // TYPES

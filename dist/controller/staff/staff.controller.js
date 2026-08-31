@@ -1,20 +1,21 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getStaffListByShopController = exports.getStaffScheduleController = exports.updateStaffScheduleController = exports.updateStaffInfoController = exports.acceptInviteController = exports.inviteStaffController = void 0;
+exports.getStaffListByShopController = exports.getStaffDetailController = exports.getStaffScheduleController = exports.deleteStaffScheduleController = exports.updateStaffScheduleController = exports.updateStaffInfoController = exports.acceptInviteController = exports.inviteStaffController = void 0;
 const ApiError_1 = require("@/utils/ApiError");
 const staff_service_1 = require("@/service/staff/staff.service");
+const apiResponse_1 = require("@/utils/apiResponse");
 const inviteStaffController = async (req, res, next) => {
     try {
         console.log("body:", req.body);
         const { invitedEmail, role } = req.body;
         const isSuperAdmin = req.user?.role === "SUPER_ADMIN";
         if (!isSuperAdmin && req.shopStaff?.role === "MANAGER" && role !== "STAFF") {
-            throw new ApiError_1.ApiError(403, "Quản lý chỉ được thêm nhân viên");
+            throw new ApiError_1.ApiError(403, "Managers can only add staff members");
         }
         const shopSlug = req.params.shopSlug;
         const invitedBy = req.user.userId;
         const result = await (0, staff_service_1.inviteStaffService)(shopSlug, invitedEmail, role, invitedBy);
-        res.status(200).json({ success: true, data: result });
+        (0, apiResponse_1.sendSuccess)(res, result);
     }
     catch (error) {
         next(error);
@@ -26,7 +27,7 @@ const acceptInviteController = async (req, res, next) => {
         const { token } = req.query;
         const userId = req.user.userId;
         const result = await (0, staff_service_1.acceptInviteService)(token, userId);
-        res.status(200).json({ success: true, data: result });
+        (0, apiResponse_1.sendSuccess)(res, result);
     }
     catch (err) {
         next(err);
@@ -36,16 +37,17 @@ exports.acceptInviteController = acceptInviteController;
 const updateStaffInfoController = async (req, res, next) => {
     try {
         const { shopSlug, staffId } = req.params;
-        const { role, isActive } = req.body;
+        const { role, permissions, isActive } = req.body;
         const canChangeRole = req.user?.role === "SUPER_ADMIN" || req.shopStaff?.role === "OWNER";
-        if (role !== undefined && !canChangeRole) {
-            throw new ApiError_1.ApiError(403, "Chỉ chủ shop được thay đổi vai trò nhân viên");
+        if ((role !== undefined || permissions !== undefined) && !canChangeRole) {
+            throw new ApiError_1.ApiError(403, "Only the shop owner can change staff roles or permissions");
         }
         const updatedStaff = await (0, staff_service_1.updateStaffInfoService)(shopSlug, staffId, {
             role,
+            permissions,
             isActive,
         });
-        return res.status(200).json({ success: true, data: updatedStaff });
+        return (0, apiResponse_1.sendSuccess)(res, updatedStaff);
     }
     catch (error) {
         next(error);
@@ -55,28 +57,47 @@ exports.updateStaffInfoController = updateStaffInfoController;
 const updateStaffScheduleController = async (req, res, next) => {
     try {
         const { shopSlug, staffId } = req.params;
-        const { schedule } = req.body;
-        const updatedSchedule = await (0, staff_service_1.updateStaffScheduleService)(shopSlug, staffId, {
-            schedule,
-        });
-        return res.status(200).json({ success: true, data: updatedSchedule });
+        const schedule = req.body;
+        const updatedSchedule = await (0, staff_service_1.updateStaffScheduleService)(shopSlug, staffId, schedule);
+        return (0, apiResponse_1.sendSuccess)(res, updatedSchedule);
     }
     catch (error) {
         next(error);
     }
 };
 exports.updateStaffScheduleController = updateStaffScheduleController;
+const deleteStaffScheduleController = async (req, res, next) => {
+    try {
+        const { shopSlug, staffId } = req.params;
+        const result = await (0, staff_service_1.deleteStaffScheduleService)(shopSlug, staffId);
+        return (0, apiResponse_1.sendSuccess)(res, result);
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.deleteStaffScheduleController = deleteStaffScheduleController;
 const getStaffScheduleController = async (req, res, next) => {
     try {
         const { shopSlug, staffId } = req.params;
         const schedule = await (0, staff_service_1.getStaffScheduleService)(shopSlug, staffId);
-        return res.status(200).json({ success: true, data: schedule });
+        return (0, apiResponse_1.sendSuccess)(res, schedule);
     }
     catch (error) {
         next(error);
     }
 };
 exports.getStaffScheduleController = getStaffScheduleController;
+const getStaffDetailController = async (req, res, next) => {
+    try {
+        const result = await (0, staff_service_1.getStaffDetailService)(req.params.shopSlug, req.params.staffId);
+        return (0, apiResponse_1.sendSuccess)(res, result);
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.getStaffDetailController = getStaffDetailController;
 const getStaffListByShopController = async (req, res, next) => {
     try {
         const { shopSlug } = req.params;
@@ -93,7 +114,7 @@ const getStaffListByShopController = async (req, res, next) => {
             status,
             sort,
         });
-        return res.status(200).json({ success: true, data: result.items, meta: { total: result.total, page: result.page, limit: result.limit, totalPages: result.totalPages } });
+        return (0, apiResponse_1.sendSuccess)(res, result.items, { meta: { total: result.total, page: result.page, limit: result.limit, totalPages: result.totalPages, hasNext: result.page < result.totalPages, hasPrev: result.page > 1 } });
     }
     catch (error) {
         next(error);

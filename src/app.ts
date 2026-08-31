@@ -7,13 +7,17 @@ import authRoutes from "./route/auth.route";
 import cookieParser from "cookie-parser";
 import shopRouter from "./route/shop/shop.route";
 import serviceRouter from "./route/service/service.route";
-import { createDailyAttendance } from "./jobs/attendance.job";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
+import { errorHandler, notFoundHandler } from "./middleware/error.middleware";
+import metricsRouter from "./route/metrics.route";
+import { metricsMiddleware } from "./middleware/metrics.middleware";
+import { initSentry, setupSentryExpress } from "./observability/sentry";
 dayjs.extend(utc);
 dayjs.extend(timezone);
 const app = express();
+initSentry();
 app.use(cookieParser());
 
 app.use(helmet());
@@ -25,6 +29,8 @@ app.use(
 );
 app.use(morgan("dev"));
 app.use(express.json());
+app.use(metricsMiddleware);
+app.use(metricsRouter);
 
 app.use(
   session({
@@ -35,8 +41,7 @@ app.use(
 );
 app.use("/auth", authRoutes);
 app.use("/api/shops", shopRouter);
-app.get("/test/cron", async (req, res) => {
-  await createDailyAttendance();
-  res.json({ success: true });
-});
+setupSentryExpress(app);
+app.use(notFoundHandler);
+app.use(errorHandler);
 export default app;

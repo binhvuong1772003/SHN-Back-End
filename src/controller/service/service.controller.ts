@@ -7,6 +7,7 @@ import {
   countService,
 } from "@/service/service/service.service";
 import { Request, Response, NextFunction } from "express";
+import { sendSuccess } from "@/utils/apiResponse";
 export const createServiceController = async (
   req: Request,
   res: Response,
@@ -16,7 +17,7 @@ export const createServiceController = async (
     const data = req.body;
     const shopSlug = req.params.shopSlug as string;
     const result = await createService(data, shopSlug);
-    res.status(201).json({ success: true, data: result });
+    sendSuccess(res, result, { statusCode: 201 });
   } catch (error) {
     next(error);
   }
@@ -36,7 +37,7 @@ export const getSerivceController = async (
       category: typeof req.query.category === "string" ? req.query.category : undefined,
       sort: typeof req.query.sort === "string" ? req.query.sort as any : undefined,
     });
-    res.status(200).json({ success: true, data: result.items, meta: { total: result.total, page: result.page, limit: result.limit, totalPages: result.totalPages, counts: result.counts } });
+    sendSuccess(res, result.items, { meta: { total: result.total, page: result.page, limit: result.limit, totalPages: result.totalPages, hasNext: result.page < result.totalPages, hasPrev: result.page > 1, counts: result.counts } });
   } catch (error) {
     next(error);
   }
@@ -50,7 +51,7 @@ export const getServiceByIdController = async (
     const shopSlug = req.params.shopSlug as string;
     const serviceId = req.params.serviceId as string;
     const result = await getServiceById(shopSlug, serviceId);
-    res.status(200).json({ success: true, data: result });
+    sendSuccess(res, result);
   } catch (error) {
     next(error);
   }
@@ -64,7 +65,7 @@ export const deleteServiceController = async (
     const shopSlug = req.params.shopSlug as string;
     const serviceId = req.params.serviceId as string;
     const result = await deleteService(shopSlug, serviceId);
-    res.status(200).json({ success: true, data: result });
+    sendSuccess(res, result);
   } catch (error) {
     next(error);
   }
@@ -85,7 +86,7 @@ export const updateServiceController = async (
     const data = req.body;
     const result = await updateService(shopSlug, serviceId, data);
     console.log("✅ Update service success");
-    res.status(200).json({ success: true, data: result });
+    sendSuccess(res, result);
   } catch (error) {
     console.error("❌ Update service error:", error);
     next(error);
@@ -99,7 +100,7 @@ export const countServiceController = async (
   try {
     const shopSlug = req.params.shopSlug as string;
     const result = await countService(shopSlug);
-    res.status(200).json({ success: true, data: result });
+    sendSuccess(res, result);
   } catch (error) {
     next(error);
   }

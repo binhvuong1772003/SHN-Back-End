@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { authenticate } from '@/middleware/authenticate.middleware';
 import { requireShopAccess } from '@/middleware/shop.middleware';
 import { validate } from '@/middleware/validation.middleware';
-import { registerSchema } from '@/validation/auth.validate';
+import { idParamSchema, notificationListQuerySchema } from '@/validation/common.validate';
 import {
   getListNotificationController,
   markReadController,
@@ -13,7 +13,7 @@ import {
 const notiRouter = Router({ mergeParams: true });
 notiRouter.use(authenticate, requireShopAccess("STAFF"));
 
-notiRouter.get('/', getListNotificationController);
-notiRouter.patch('/:id', markReadController);
-notiRouter.delete('/:id', deleteNotificationController);
+notiRouter.get('/', validate({ query: notificationListQuerySchema }), getListNotificationController);
+notiRouter.patch('/:id', validate({ params: idParamSchema('id') }), markReadController);
+notiRouter.delete('/:id', validate({ params: idParamSchema('id') }), deleteNotificationController);
 export default notiRouter;

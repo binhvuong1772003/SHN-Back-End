@@ -6,6 +6,7 @@ import {
   getCategoryById,
   updateCategory,
 } from '@/service/service/category.service';
+import { sendSuccess } from '@/utils/apiResponse';
 export const createCategoryController = async (
   req: Request,
   res: Response,
@@ -15,7 +16,7 @@ export const createCategoryController = async (
     const data = req.body;
     const shopSlug = req.params.shopSlug as string;
     const result = await createCategory(data, shopSlug);
-    res.status(201).json({ success: true, data: result });
+    sendSuccess(res, result, { statusCode: 201 });
   } catch (error) {
     next(error);
   }
@@ -28,7 +29,7 @@ export const deleteCategoryController = async (
   try {
     const id = req.params.id as string;
     const result = await deleteCategory(id);
-    res.status(200).json({ success: true, data: result });
+    sendSuccess(res, result);
   } catch (error) {
     next(error);
   }
@@ -41,7 +42,7 @@ export const getCategoriesController = async (
   try {
     const shopSlug = req.params.shopSlug as string;
     const result = await getCategories(shopSlug);
-    res.status(200).json({ success: true, data: result });
+    sendSuccess(res, result);
   } catch (error) {
     next(error);
   }
@@ -54,7 +55,7 @@ export const getCategoryByIdController = async (
   try {
     const id = req.params.id as string;
     const result = await getCategoryById(id);
-    res.status(200).json({ success: true, data: result });
+    sendSuccess(res, result);
   } catch (error) {
     next(error);
   }
@@ -68,7 +69,7 @@ export const updateCategoryController = async (
     const id = req.params.id as string;
     const data = req.body;
     const result = await updateCategory(id, data);
-    res.status(200).json({ success: true, data: result });
+    sendSuccess(res, result);
   } catch (error) {
     next(error);
   }

@@ -32,7 +32,7 @@ export const requireShopAccess =
         return next();
       }
 
-      // SHOP_MEMBER - check ShopRole trong shop cụ thể
+      // SHOP_MEMBER - check the role in this specific shop.
       if (userRole === "SHOP_MEMBER") {
         const shopStaff = await db.shopStaff.findFirst({
           where: {
@@ -47,7 +47,7 @@ export const requireShopAccess =
 
         if (!shopStaff) throw new ApiError(403, "Forbidden");
 
-        // Check đủ quyền không
+        // Check whether the user has sufficient permissions.
         const roleLevel: Record<ShopRole, number> = {
           STAFF: 1,
           MANAGER: 2,
@@ -55,7 +55,7 @@ export const requireShopAccess =
         };
 
         if (roleLevel[shopStaff.role] < roleLevel[minRole]) {
-          throw new ApiError(403, "Không đủ quyền");
+          throw new ApiError(403, "Insufficient shop permissions");
         }
 
         req.shop = shopStaff.shop;

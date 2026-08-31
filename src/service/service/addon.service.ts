@@ -16,14 +16,14 @@ export const createAddonService = async (
   data: CreateAddonInput
 ) => {
   const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
-  if (!shop) throw new ApiError(404, 'Shop không tồn tại');
+  if (!shop) throw new ApiError(404, 'Shop not found');
 
-  // Kiểm tra serviceId nếu có
+  // Validate serviceId when provided.
   if (data.serviceId) {
     const service = await db.service.findUnique({
       where: { id: data.serviceId, shopId: shop.id },
     });
-    if (!service) throw new ApiError(404, 'Service không tồn tại');
+    if (!service) throw new ApiError(404, 'Service not found');
   }
 
   return db.addonService.create({
@@ -36,7 +36,7 @@ export const createAddonService = async (
 
 export const getAddonServices = async (shopSlug: string) => {
   const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
-  if (!shop) throw new ApiError(404, 'Shop không tồn tại');
+  if (!shop) throw new ApiError(404, 'Shop not found');
 
   return db.addonService.findMany({
     where: { shopId: shop.id },
@@ -50,7 +50,7 @@ export const getAddonServiceById = async (
   addonId: string
 ) => {
   const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
-  if (!shop) throw new ApiError(404, 'Shop không tồn tại');
+  if (!shop) throw new ApiError(404, 'Shop not found');
 
   const addon = await db.addonService.findUnique({
     where: { id: addonId },
@@ -58,7 +58,7 @@ export const getAddonServiceById = async (
   });
 
   if (!addon || addon.shopId !== shop.id) {
-    throw new ApiError(404, 'Addon không tồn tại');
+    throw new ApiError(404, 'Addon not found');
   }
 
   return addon;
@@ -70,18 +70,18 @@ export const updateAddonService = async (
   data: Partial<CreateAddonInput>
 ) => {
   const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
-  if (!shop) throw new ApiError(404, 'Shop không tồn tại');
+  if (!shop) throw new ApiError(404, 'Shop not found');
 
   const addon = await db.addonService.findUnique({ where: { id: addonId } });
   if (!addon || addon.shopId !== shop.id) {
-    throw new ApiError(404, 'Addon không tồn tại');
+    throw new ApiError(404, 'Addon not found');
   }
 
   if (data.serviceId) {
     const service = await db.service.findUnique({
       where: { id: data.serviceId, shopId: shop.id },
     });
-    if (!service) throw new ApiError(404, 'Service không tồn tại');
+    if (!service) throw new ApiError(404, 'Service not found');
   }
 
   return db.addonService.update({
@@ -93,11 +93,11 @@ export const updateAddonService = async (
 
 export const deleteAddonService = async (shopSlug: string, addonId: string) => {
   const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
-  if (!shop) throw new ApiError(404, 'Shop không tồn tại');
+  if (!shop) throw new ApiError(404, 'Shop not found');
 
   const addon = await db.addonService.findUnique({ where: { id: addonId } });
   if (!addon || addon.shopId !== shop.id) {
-    throw new ApiError(404, 'Addon không tồn tại');
+    throw new ApiError(404, 'Addon not found');
   }
 
   return db.addonService.delete({ where: { id: addonId } });

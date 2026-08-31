@@ -1,7 +1,8 @@
 import { authenticate } from '@/middleware/authenticate.middleware';
 import { Router } from 'express';
 import { validate } from '@/middleware/validation.middleware';
-import { createCategorySchema } from '@/validation/service.validate';
+import { createCategorySchema, updateCategorySchema } from '@/validation/service.validate';
+import { idParamSchema } from '@/validation/common.validate';
 import {
   createCategoryController,
   getCategoriesController,
@@ -17,7 +18,7 @@ categoryRouter.post(
   createCategoryController
 );
 categoryRouter.get('/categories', getCategoriesController);
-categoryRouter.get('/categories/:id', getCategoryByIdController);
-categoryRouter.delete('/categories/:id', deleteCategoryController);
-categoryRouter.patch('/categories/:id', updateCategoryController);
+categoryRouter.get('/categories/:id', validate({ params: idParamSchema('id') }), getCategoryByIdController);
+categoryRouter.delete('/categories/:id', validate({ params: idParamSchema('id') }), deleteCategoryController);
+categoryRouter.patch('/categories/:id', validate({ params: idParamSchema('id'), body: updateCategorySchema }), updateCategoryController);
 export default categoryRouter;

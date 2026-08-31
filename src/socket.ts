@@ -11,7 +11,7 @@ export const initSocket = (httpServer: HttpServer): void => {
   io.on('connection', (socket: Socket) => {
     socket.on('join', (userId: string) => {
       socket.join(userId);
-      console.log(`✅ User ${userId} joined room`); // thêm dòng này
+      console.log(`✅ User ${userId} joined room`);
     });
 
     socket.on('join_shop', (shopId: string) => {

@@ -8,7 +8,7 @@ const createCategory = async (data, shopSlug) => {
         where: { slug: shopSlug },
     });
     if (!shop)
-        throw new ApiError_1.ApiError(404, 'Shop không tồn tại');
+        throw new ApiError_1.ApiError(404, 'Shop not found');
     const result = await prisma_1.db.serviceCategory.create({
         data: {
             shopId: shop.id,
@@ -38,7 +38,7 @@ const getCategories = async (shopSlug) => {
         where: { slug: shopSlug },
     });
     if (!shop)
-        throw new ApiError_1.ApiError(404, 'Shop không tồn tại');
+        throw new ApiError_1.ApiError(404, 'Shop not found');
     const result = await prisma_1.db.serviceCategory.findMany({
         where: { shopId: shop.id },
     });
@@ -50,7 +50,7 @@ const getCategoryById = async (id) => {
         where: { id },
     });
     if (!result)
-        throw new ApiError_1.ApiError(404, 'Category không tồn tại');
+        throw new ApiError_1.ApiError(404, 'Category not found');
     return result;
 };
 exports.getCategoryById = getCategoryById;

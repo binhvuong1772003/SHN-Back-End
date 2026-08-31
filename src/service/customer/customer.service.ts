@@ -5,13 +5,13 @@ export const getTopCustomer = async (shopSlug: string, limit: number = 5) => {
   const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
   if (!shop) throw new ApiError(404, "Shop not found");
 
-  // shopId trong MongoDB là ObjectId, cần dùng $oid
+  // shopId is a MongoDB ObjectId and must use $oid.
   const result = await db.appointment.aggregateRaw({
     pipeline: [
       {
         $match: {
           shopId: { $oid: shop.id },
-          status: { $in: ["CONFIRMED", "DONE"] },
+          status: { $in: ["CONFIRMED", "COMPLETED"] },
         },
       },
       {

@@ -1,4 +1,16 @@
 import { redisConnection } from "@/config/redis";
+import {
+  serviceListCachePattern,
+  staffListCachePattern,
+  staffScheduleCacheKey,
+} from "@/cache/cacheKeys";
+
+export const clearStaffScheduleCache = async (
+  shopId: string,
+  staffId: string,
+) => {
+  await redisConnection.del(staffScheduleCacheKey(shopId, staffId));
+};
 
 export const clearStaffListCache = async (shopSlug: string) => {
   const keys: string[] = [];
@@ -8,7 +20,7 @@ export const clearStaffListCache = async (shopSlug: string) => {
     const [nextCursor, foundKeys] = await redisConnection.scan(
       cursor,
       "MATCH",
-      `shop:${shopSlug}:staff:list:*`,
+      staffListCachePattern(shopSlug),
       "COUNT",
       100,
     );
@@ -28,7 +40,7 @@ export const clearServiceListCache = async (shopSlug: string) => {
     const [nextCursor, foundKeys] = await redisConnection.scan(
       cursor,
       "MATCH",
-      `shop:${shopSlug}:service:list:*`,
+      serviceListCachePattern(shopSlug),
       "COUNT",
       100,
     );

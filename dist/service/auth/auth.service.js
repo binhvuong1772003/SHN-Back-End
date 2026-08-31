@@ -15,6 +15,20 @@ const email_queue_1 = require("@/queues/email.queue");
 const REFRESH_EXPIRES = process.env.JWT_REFRESH_EXPIRES || "30d";
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 const VERIFICATION_TOKEN_TTL_MS = 60 * 60 * 1000;
+const revokeAllUserSessions = async (userId) => {
+    await prisma_1.db.user.update({
+        where: { id: userId },
+        data: { tokenVersion: { increment: 1 } },
+    });
+    await prisma_1.db.refreshToken.updateMany({
+        where: { userId },
+        data: { isRevoked: true },
+    });
+};
+const throwRefreshTokenReuseError = async (userId) => {
+    await revokeAllUserSessions(userId);
+    throw new ApiError_1.ApiError(401, "Refresh token reuse detected; please sign in again", undefined, "TOKEN_REUSE_DETECTED");
+};
 const enqueueVerificationEmail = async (user) => {
     const rawToken = crypto_1.default.randomUUID();
     const verification = await prisma_1.db.emailVerification.create({
@@ -61,7 +75,17 @@ const enqueueVerificationEmail = async (user) => {
     }
 };
 const issueTokens = async (userId, role, meta) => {
-    const accessToken = (0, jwt_1.signAccessToken)({ userId, role });
+    const user = await prisma_1.db.user.findUnique({
+        where: { id: userId },
+        select: { tokenVersion: true },
+    });
+    if (!user)
+        throw new ApiError_1.ApiError(401, "User not found");
+    const accessToken = (0, jwt_1.signAccessToken)({
+        userId,
+        role,
+        tokenVersion: user.tokenVersion,
+    });
     const rawRefreshToken = (0, jwt_1.generateOpaqueToken)();
     await prisma_1.db.refreshToken.create({
         data: {
@@ -119,9 +143,9 @@ const verifyEmailService = async (rawToken, meta) => {
         include: { user: true },
     });
     if (!record)
-        throw new ApiError_1.ApiError(400, "Link xác thực không hợp lệ");
+        throw new ApiError_1.ApiError(400, "Invalid verification link");
     if (record.expiresAt < new Date())
-        throw new ApiError_1.ApiError(400, "Link xác thực đã hết hạn");
+        throw new ApiError_1.ApiError(400, "Verification link has expired");
     const user = await prisma_1.db.user.update({
         where: { id: record.userId },
         data: { isVerified: true },
@@ -134,9 +158,9 @@ exports.verifyEmailService = verifyEmailService;
 const resendVerificationEmail = async (email) => {
     const user = await prisma_1.db.user.findUnique({ where: { email } });
     if (!user)
-        throw new ApiError_1.ApiError(404, "Email không tồn tại");
+        throw new ApiError_1.ApiError(404, "Email address not found");
     if (user.isVerified)
-        throw new ApiError_1.ApiError(400, "Tài khoản đã được xác thực");
+        throw new ApiError_1.ApiError(400, "Account is already verified");
     await enqueueVerificationEmail(user);
 };
 exports.resendVerificationEmail = resendVerificationEmail;
@@ -147,12 +171,12 @@ const loginWithEmailService = async (email, password, meta) => {
         },
     });
     if (!user || !user.passwordHash)
-        throw new ApiError_1.ApiError(401, "Email hoặc Password không chính xác");
+        throw new ApiError_1.ApiError(401, "Invalid email or password");
     if (!user.isVerified)
-        throw new ApiError_1.ApiError(403, "Tài khoản chưa được xác thực");
+        throw new ApiError_1.ApiError(403, "Account is not verified");
     const isPasswordValid = await bcryptjs_1.default.compare(password, user.passwordHash);
     if (!isPasswordValid)
-        throw new ApiError_1.ApiError(401, "Email hoặc Password không chính xác");
+        throw new ApiError_1.ApiError(401, "Invalid email or password");
     const token = await (0, exports.issueTokens)(user.id, user.role, meta);
     const { passwordHash: _, ...safeUser } = user;
     return { user: safeUser, tokens: token };
@@ -174,13 +198,9 @@ const refreshTokenService = async (rawToken, meta) => {
         where: { tokenHash: (0, jwt_1.hashToken)(rawToken) },
     });
     if (!stored)
-        throw new ApiError_1.ApiError(401, "Refresh token không hợp lệ");
+        throw new ApiError_1.ApiError(401, "Invalid refresh token");
     if (stored.isRevoked) {
-        await prisma_1.db.refreshToken.updateMany({
-            where: { userId: stored.userId },
-            data: { isRevoked: true },
-        });
-        throw new ApiError_1.ApiError(401, "Phát hiện bất thường, vui lòng đăng nhập lại");
+        return throwRefreshTokenReuseError(stored.userId);
     }
     if (stored.expiresAt < new Date()) {
         await prisma_1.db.refreshToken.updateMany({
@@ -191,19 +211,24 @@ const refreshTokenService = async (rawToken, meta) => {
                 isRevoked: true,
             },
         });
-        throw new ApiError_1.ApiError(401, "Token đã hết hạn");
+        throw new ApiError_1.ApiError(401, "Token has expired");
     }
-    await prisma_1.db.refreshToken.updateMany({
+    const consumed = await prisma_1.db.refreshToken.updateMany({
         where: {
             tokenHash: stored.tokenHash,
+            isRevoked: false,
         },
         data: {
             isRevoked: true,
+            lastUsedAt: new Date(),
         },
     });
+    if (consumed.count !== 1) {
+        return throwRefreshTokenReuseError(stored.userId);
+    }
     const user = await prisma_1.db.user.findUnique({ where: { id: stored.userId } });
     if (!user)
-        throw new ApiError_1.ApiError(401, "Người dùng không tồn tại");
+        throw new ApiError_1.ApiError(401, "User not found");
     const newToken = await (0, exports.issueTokens)(stored.userId, user.role, meta);
     return newToken;
 };
@@ -221,7 +246,7 @@ const getMeService = async (userId) => {
         },
     });
     if (!user)
-        throw new ApiError_1.ApiError(404, "User không tồn tại");
+        throw new ApiError_1.ApiError(404, "User not found");
     return user;
 };
 exports.getMeService = getMeService;

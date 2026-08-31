@@ -4,37 +4,39 @@ exports.validate = void 0;
 const zod_1 = require("zod");
 const ApiError_1 = require("@/utils/ApiError");
 const validate = (schema) => {
-    return async (req, res, next) => {
+    return async (req, _res, next) => {
+        const targets = typeof schema.parseAsync === "function"
+            ? { body: schema }
+            : schema;
         try {
-            if (schema.body) {
-                console.log('body nhận được:', req.body); // ← thêm
-                req.body = await schema.body.parseAsync(req.body);
+            if (targets.body)
+                req.body = await targets.body.parseAsync(req.body);
+            if (targets.query) {
+                const validatedQuery = await targets.query.parseAsync(req.query);
+                Object.defineProperty(req, "query", {
+                    value: validatedQuery,
+                    configurable: true,
+                    enumerable: true,
+                    writable: true,
+                });
             }
-            if (schema.query) {
-                req.query = (await schema.query.parseAsync(req.query));
+            if (targets.params) {
+                const validatedParams = await targets.params.parseAsync(req.params);
+                req.params = { ...req.params, ...validatedParams };
             }
-            if (schema.params) {
-                req.params = (await schema.params.parseAsync(req.params));
-            }
-            if (schema.headers)
-                await schema.headers.parseAsync(req.headers);
+            if (targets.headers)
+                await targets.headers.parseAsync(req.headers);
             next();
         }
         catch (error) {
             if (error instanceof zod_1.ZodError) {
-                console.log('Zod errors:', JSON.stringify(error.issues, null, 2));
-                const issues = error.issues ??
-                    error.errors ??
-                    [];
-                const messages = issues.map((e) => ({
-                    field: e.path.join('.'),
-                    message: e.message,
+                const details = error.issues.map((issue) => ({
+                    field: issue.path.join("."),
+                    message: issue.message,
                 }));
-                next(new ApiError_1.ApiError(400, 'Validation Error', messages));
+                return next(new ApiError_1.ApiError(422, "Invalid request data", details, "VALIDATION_ERROR"));
             }
-            else {
-                next(error);
-            }
+            return next(error);
         }
     };
 };

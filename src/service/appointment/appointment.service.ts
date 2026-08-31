@@ -13,6 +13,32 @@ import timezone from "dayjs/plugin/timezone";
 dayjs.extend(utc);
 dayjs.extend(timezone);
 import { getIO } from "@/socket";
+import type { AppointmentStatus, ShopRole } from "@prisma/client";
+
+const appointmentTransitions: Record<AppointmentStatus, AppointmentStatus[]> = {
+  PENDING: ["CONFIRMED", "CANCELLED"],
+  CONFIRMED: ["IN_PROGRESS", "CANCELLED", "NO_SHOW"],
+  IN_PROGRESS: ["COMPLETED"],
+  COMPLETED: [],
+  CANCELLED: [],
+  NO_SHOW: [],
+};
+
+const assertManagerCanChangeStatus = (role: ShopRole | undefined) => {
+  if (role !== "OWNER" && role !== "MANAGER") {
+    throw new ApiError(403, "Only shop managers can change appointment status");
+  }
+};
+
+const isAppointmentStatus = (status: string): status is AppointmentStatus =>
+  [
+    "PENDING",
+    "CONFIRMED",
+    "IN_PROGRESS",
+    "COMPLETED",
+    "CANCELLED",
+    "NO_SHOW",
+  ].includes(status);
 export const createAppointment = async (
   data: CreateAppointmentInput,
   customerId: string,
@@ -71,23 +97,23 @@ export const createAppointment = async (
     : [];
 
   if (serviceIds?.length && services.length !== serviceIds.length) {
-    throw new ApiError(404, "Một số dịch vụ không tồn tại hoặc không khả dụng");
+    throw new ApiError(404, "One or more services were not found or are unavailable");
   }
   if (packageIds?.length && packages.length !== packageIds.length) {
     throw new ApiError(
       404,
-      "Một số gói dịch vụ không tồn tại hoặc không khả dụng",
+      "One or more service packages were not found or are unavailable",
     );
   }
   if (addonIds?.length && addons.length !== addonIds.length) {
     throw new ApiError(
       404,
-      "Một số dịch vụ thêm không tồn tại hoặc không khả dụng",
+      "One or more add-ons were not found or are unavailable",
     );
   }
 
   if (services.length === 0 && packages.length === 0) {
-    throw new ApiError(400, "Phải chọn ít nhất một dịch vụ hoặc gói dịch vụ");
+    throw new ApiError(400, "At least one service or package is required");
   }
 
   // Validate required options are selected
@@ -99,7 +125,7 @@ export const createAppointment = async (
       if (!serviceOptionData || serviceOptionData.optionValueIds.length === 0) {
         throw new ApiError(
           400,
-          `Dịch vụ "${service.name}" yêu cầu chọn tùy chọn`,
+          `Service "${service.name}" requires an option selection`,
         );
       }
     }
@@ -121,7 +147,7 @@ export const createAppointment = async (
   totalDuration += addons.reduce((sum, a) => sum + (a.duration ?? 0), 0);
 
   if (totalDuration < 15) {
-    throw new ApiError(400, "Thời gian dịch vụ phải ít nhất 15 phút");
+    throw new ApiError(400, "Service duration must be at least 15 minutes");
   }
 
   // Calculate endTime and validate slot
@@ -144,7 +170,7 @@ export const createAppointment = async (
   //     where: { id: staffId, shopId: shop.id, isActive: true },
   //   });
   //   if (!shopStaff) {
-  //     throw new ApiError(404, "Staff không tồn tại");
+  //     throw new ApiError(404, "Staff not found");
   //   }
   //   assignedUserId = shopStaff.userId;
   // }
@@ -235,6 +261,28 @@ export const createAppointment = async (
     },
   });
 
+  await db.appointmentLifecycle.create({
+    data: {
+      appointmentId: appointment.id,
+      shopId: shop.id,
+      toStatus: appointment.status,
+      changedById: customerId,
+      reason: "Appointment created",
+      metadata: { source: source ?? "APP", autoConfirmed: Boolean(shop.settings?.autoConfirm) },
+    },
+  });
+
+  await db.auditLog.create({
+    data: {
+      shopId: shop.id,
+      userId: customerId,
+      action: "APPOINTMENT_CREATED",
+      entity: "Appointment",
+      entityId: appointment.id,
+      changes: { toStatus: appointment.status },
+    },
+  });
+
   if (promotionId) {
     await incrementPromotionUsage(promotionId);
   }
@@ -247,8 +295,8 @@ export const createAppointment = async (
     managers.map((m) =>
       db.notification.create({
         data: {
-          title: "Yêu cầu nghỉ",
-          content: `${appointment?.customer.name} đã đặt lịch từ từ ${appointment.startTime} đến ${appointment.endTime} ngày ${appointmentDate}`,
+          title: "New appointment request",
+          content: `${appointment?.customer.name} booked an appointment from ${appointment.startTime} to ${appointment.endTime} on ${appointmentDate}`,
           type: "OFF_DAY_REQUEST",
           channel: "PUSH",
           shopId: shop.id,
@@ -261,7 +309,7 @@ export const createAppointment = async (
     .to(`shop:${shop.id}`)
     .emit("appointment_request", {
       appointmentId: appointment.id,
-      message: `${appointment?.customer.name} đã đặt lịch từ từ ${appointment.startTime} đến ${appointment.endTime} ngày ${appointmentDate}`,
+      message: `${appointment?.customer.name} booked an appointment from ${appointment.startTime} to ${appointment.endTime} on ${appointmentDate}`,
       notificationId: notifications[0].id,
     });
   return appointment;
@@ -324,17 +372,109 @@ export const changeAppointmentStatus = async (
   shopSlug: string,
   appointmentId: string,
   status: string,
+  actorUserId: string,
+  actorRole: ShopRole | undefined,
+  reason?: string,
+  cancelReason?: string,
+  internalNote?: string,
 ) => {
+  assertManagerCanChangeStatus(actorRole);
+  if (!actorUserId) throw new ApiError(401, "Unauthorized");
+  if (!isAppointmentStatus(status) || status === "PENDING") {
+    throw new ApiError(400, "Invalid appointment transition status");
+  }
+
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
   if (!shop) throw new ApiError(404, "Shop not found");
-  return await db.appointment.update({
-    where: {
-      id: appointmentId,
-    },
-    data: {
-      status: status as any,
+
+  return await db.$transaction(async (tx) => {
+    const current = await tx.appointment.findFirst({
+      where: { id: appointmentId, shopId: shop.id },
+      select: { id: true, shopId: true, status: true, cancelReason: true },
+    });
+    if (!current) throw new ApiError(404, "Appointment not found");
+
+    const nextStatus = status as AppointmentStatus;
+    if (!appointmentTransitions[current.status].includes(nextStatus)) {
+      throw new ApiError(
+        409,
+        `Cannot change appointment status from ${current.status} to ${nextStatus}`,
+      );
+    }
+    if (nextStatus === "CANCELLED" && !(cancelReason || reason)) {
+      throw new ApiError(400, "Cancellation reason is required");
+    }
+
+    const now = new Date();
+    const updateResult = await tx.appointment.updateMany({
+      where: { id: current.id, shopId: current.shopId, status: current.status },
+      data: {
+        status: nextStatus,
+        ...(nextStatus === "IN_PROGRESS" ? { checkedInAt: now } : {}),
+        ...(nextStatus === "COMPLETED" ? { completedAt: now } : {}),
+        ...(nextStatus === "CANCELLED"
+          ? { cancelReason: cancelReason || reason }
+          : {}),
+        ...(internalNote !== undefined ? { internalNote } : {}),
+      },
+    });
+    if (updateResult.count !== 1) {
+      throw new ApiError(409, "Appointment status was changed by another request");
+    }
+
+    const updated = await tx.appointment.findUnique({ where: { id: current.id } });
+    if (!updated) throw new ApiError(404, "Appointment not found");
+
+    await tx.appointmentLifecycle.create({
+      data: {
+        appointmentId: current.id,
+        shopId: current.shopId,
+        fromStatus: current.status,
+        toStatus: nextStatus,
+        reason: reason || cancelReason || null,
+        changedById: actorUserId,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        shopId: current.shopId,
+        userId: actorUserId,
+        action: "APPOINTMENT_STATUS_CHANGED",
+        entity: "Appointment",
+        entityId: current.id,
+        changes: {
+          fromStatus: current.status,
+          toStatus: nextStatus,
+          reason: reason || cancelReason || null,
+        },
+      },
+    });
+
+    return updated;
+  });
+};
+
+export const getAppointmentLifecycle = async (
+  shopSlug: string,
+  appointmentId: string,
+) => {
+  const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
+  if (!shop) throw new ApiError(404, "Shop not found");
+
+  const appointment = await db.appointment.findFirst({
+    where: { id: appointmentId, shopId: shop.id },
+    select: { id: true },
+  });
+  if (!appointment) throw new ApiError(404, "Appointment not found");
+
+  return db.appointmentLifecycle.findMany({
+    where: { appointmentId: appointment.id, shopId: shop.id },
+    orderBy: { createdAt: "asc" },
+    include: {
+      changedBy: { select: { id: true, name: true } },
     },
   });
 };
@@ -353,7 +493,7 @@ export const getIncomeByDayWeekly = async (shopSlug: string) => {
   const appointments = await db.appointment.findMany({
     where: {
       shopId: shop.id,
-      status: "DONE",
+      status: "COMPLETED",
       date: {
         gte: start,
         lt: end,
@@ -388,14 +528,37 @@ export const getIncomeByDayWeekly = async (shopSlug: string) => {
   const weeklyTotal = days.reduce((sum, item) => sum + item.income, 0);
   return { weekRange, days, today, weeklyTotal };
 };
-export const markAllAppointmentsAsDone = async (shopSlug: string) => {
+export const markAllAppointmentsAsDone = async (
+  shopSlug: string,
+  actorUserId: string,
+  actorRole: ShopRole | undefined,
+) => {
+  assertManagerCanChangeStatus(actorRole);
+  if (!actorUserId) throw new ApiError(401, "Unauthorized");
+
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
   if (!shop) throw new ApiError(404, "Shop not found");
-  const result = await db.appointment.updateMany({
-    where: { shopId: shop.id },
-    data: { status: "DONE" },
+
+  const appointments = await db.appointment.findMany({
+    where: {
+      shopId: shop.id,
+      status: { in: ["CONFIRMED", "IN_PROGRESS"] },
+    },
+    select: { id: true, status: true },
   });
-  return result;
+
+  for (const appointment of appointments) {
+    await changeAppointmentStatus(
+      shopSlug,
+      appointment.id,
+      "COMPLETED",
+      actorUserId,
+      actorRole,
+      "Bulk completion by manager",
+    );
+  }
+
+  return { count: appointments.length };
 };

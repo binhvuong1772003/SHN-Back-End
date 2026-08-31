@@ -4,7 +4,7 @@ import { Shop, ShopStaff } from '@prisma/client';
 declare global {
   namespace Express {
     interface Request {
-      user?: { userId: string; role: string };
+      user?: { userId: string; role: string; tokenVersion: number };
       shop?: Shop;
       shopStaff?: ShopStaff;
     }

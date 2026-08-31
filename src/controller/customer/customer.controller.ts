@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { getTopCustomer } from "@/service/customer/customer.service";
+import { sendSuccess } from "@/utils/apiResponse";
 export const getTopCustomerController = async (
   req: Request,
   res: Response,
@@ -7,12 +8,9 @@ export const getTopCustomerController = async (
 ) => {
   try {
     const shopSlug = req.params.shopSlug as string;
-    const limit = parseInt(req.query.limit as string) || 5;
+    const limit = Number(req.query.limit ?? 5);
     const customers = await getTopCustomer(shopSlug, limit);
-    res.status(200).json({
-      success: true,
-      data: customers,
-    });
+    sendSuccess(res, customers);
   } catch (error) {
     next(error);
   }

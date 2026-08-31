@@ -1,55 +1,63 @@
-import { db } from '@/db/prisma';
-import { UserEntity } from '@/validates/auth.validate';
+import { db } from "@/db/prisma";
+
 export const findUserById = (id: string) => {
   return db.user.findUnique({
     where: { id },
   });
 };
+
 export const findUserByEmail = async (email: string) => {
   return db.user.findUnique({
     where: { email },
     select: {
       id: true,
       email: true,
-      password: true,
+      passwordHash: true,
       role: true,
-      // nếu login cần
     },
   });
 };
-export const createUser = (data: Pick<UserEntity, 'email' | 'password'>) => {
+
+export const createUser = (data: {
+  name: string;
+  email: string;
+  passwordHash?: string;
+}) => {
   return db.user.create({ data });
 };
+
 export const updateRefreshToken = (
   userId: string,
-  refreshToken: string | null
+  refreshToken: string | null,
 ) => {
-  return db.user.update({
-    where: { id: userId },
-    data: { refreshToken },
+  return db.refreshToken.updateMany({
+    where: { userId },
+    data: { isRevoked: refreshToken === null },
   });
 };
+
 export const createVerifyToken = (
   userId: string,
   token: string,
-  expiresAt: Date
+  expiresAt: Date,
 ) => {
-  return db.emailVerificationToken.create({
+  return db.emailVerification.create({
     data: {
       userId,
       token,
-      expiresAt, // đúng tên field
+      expiresAt,
     },
   });
 };
 
 export const findVerifyToken = async (token: string) => {
-  return db.emailVerificationToken.findUnique({
+  return db.emailVerification.findUnique({
     where: { token },
   });
 };
+
 export const deleteVerifyToken = async (token: string) => {
-  return db.emailVerificationToken.delete({
+  return db.emailVerification.delete({
     where: { token },
   });
 };

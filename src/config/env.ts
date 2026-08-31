@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-const required = ["JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET"] as const;
+const required = ["JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET", "QR_SECRET"] as const;
 
 required.forEach((key) => {
   if (!process.env[key]) {

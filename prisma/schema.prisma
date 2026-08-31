@@ -36,6 +36,10 @@
     STAFF
   }
 
+  enum StaffPermission {
+    PAYROLL_ADJUST
+  }
+
   enum Gender {
     MALE
     FEMALE
@@ -52,7 +56,7 @@
     PENDING
     CONFIRMED
     IN_PROGRESS
-    DONE
+    COMPLETED
     CANCELLED
     NO_SHOW
   }
@@ -154,6 +158,7 @@
     gender       Gender?
     isActive     Boolean   @default(true)
     isVerified   Boolean   @default(false)
+    tokenVersion Int       @default(0)
 
     oauthAccounts       OAuthAccount[]
     refreshTokens       RefreshToken[]
@@ -163,6 +168,7 @@
     staffProfiles       ShopStaff[]
     customerAppointments Appointment[]       @relation("CustomerAppointments")
     staffAppointments   Appointment[]        @relation("StaffAppointments")
+    appointmentLifecycleChanges AppointmentLifecycle[] @relation("AppointmentLifecycleChanges")
     notifications       Notification[]
     reviews             Review[]
     payrolls            Payroll[]
@@ -329,6 +335,9 @@ businessHours ShopBusinessHour[]
     depositPercent        Float   @default(30)
     maxAdvanceBookingDays Int     @default(30)
     slotIntervalMinutes   Int     @default(15)
+    attendanceGraceMinutes Int?   @default(5)
+    earlyCheckInMinutes     Int?   @default(30)
+    lateCheckOutMinutes     Int?   @default(30)
   }
 
   // ============================================================
@@ -343,6 +352,7 @@ businessHours ShopBusinessHour[]
     bio           String?
     avatarUrl     String?
     role          ShopRole  @default(STAFF)
+    permissions   StaffPermission[] @default([])
     isActive      Boolean   @default(true)
     joinedAt      DateTime  @default(now())
     leftAt        DateTime?
@@ -408,7 +418,7 @@ businessHours ShopBusinessHour[]
     checkOut    DateTime?
     status      AttendanceStatus @default(PRESENT)
     lateMinutes Int              @default(0)
-    workHours   Int              @default(0)
+    workMinutes Int              @default(0)
     note        String?
     recordedBy  String?          @db.ObjectId
 
@@ -702,6 +712,7 @@ businessHours ShopBusinessHour[]
     addons   AppointmentAddon[]
     payment  Payment?
     review   Review?
+    lifecycle AppointmentLifecycle[]
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
@@ -712,6 +723,25 @@ businessHours ShopBusinessHour[]
     @@index([status])
     @@index([createdAt])
     @@map("appointments")
+  }
+
+  model AppointmentLifecycle {
+    id            String            @id @default(auto()) @map("_id") @db.ObjectId
+    appointmentId String            @db.ObjectId
+    shopId        String            @db.ObjectId
+    fromStatus    AppointmentStatus?
+    toStatus      AppointmentStatus
+    reason        String?
+    changedById   String?           @db.ObjectId
+    metadata      Json?
+    createdAt     DateTime          @default(now())
+
+    appointment Appointment @relation(fields: [appointmentId], references: [id])
+    changedBy   User?       @relation("AppointmentLifecycleChanges", fields: [changedById], references: [id])
+
+    @@index([appointmentId, createdAt])
+    @@index([shopId, createdAt])
+    @@map("appointment_lifecycles")
   }
 
   model AppointmentService {

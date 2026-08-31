@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const inviteStaffSchema = z.object({
-  invitedEmail: z.string().email("Email không hợp lệ"),
+  invitedEmail: z.string().email("Invalid email address"),
   // Owners are created with the shop and are not invited through this form.
   role: z.enum(["MANAGER", "STAFF"]).default("STAFF"),
 });
@@ -9,23 +9,30 @@ export const inviteStaffSchema = z.object({
 export const updatedStaffInfo = z
   .object({
     role: z.enum(["OWNER", "MANAGER", "STAFF"]).optional(),
+    permissions: z.array(z.enum(["PAYROLL_ADJUST"])).optional(),
     isActive: z.boolean().optional(),
   })
-  .refine((data) => data.role !== undefined || data.isActive !== undefined, {
-    message: "Cần ít nhất một trường để cập nhật",
-  });
+  .refine(
+    (data) =>
+      data.role !== undefined ||
+      data.permissions !== undefined ||
+      data.isActive !== undefined,
+    {
+    message: "At least one field is required",
+    },
+  );
 
 export const updateStaffSchedule = z.array(
   z.object({
     dayOfWeek: z.number().int().min(0).max(6),
     startTime: z
       .string()
-      .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Giờ mở cửa không hợp lệ (HH:mm)"),
+      .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid opening time (HH:mm)"),
     endTime: z
       .string()
       .regex(
         /^([01]\d|2[0-3]):([0-5]\d)$/,
-        "Giờ đóng cửa không hợp lệ (HH:mm)",
+        "Invalid closing time (HH:mm)",
       ),
     isOff: z.boolean().default(false),
   }),
@@ -42,10 +49,10 @@ export const requestOffDaySchema = z
       if (data.offDateEnd) return data.offDateEnd >= data.offDate;
       return true;
     },
-    { message: "Ngày kết thúc phải sau ngày bắt đầu", path: ["offDateEnd"] },
+    { message: "End date must be after start date", path: ["offDateEnd"] },
   )
   .refine((data) => data.offDate >= new Date(), {
-    message: "Ngày xin nghỉ không hợp lệ",
+    message: "Invalid off-day date",
     path: ["offDate"],
   });
 
@@ -59,7 +66,7 @@ export const responseOffDaySchema = z
       if (data.status === "REJECTED") return !!data.rejectReason;
       return true;
     },
-    { message: "Cần có lý do từ chối", path: ["rejectReason"] },
+    { message: "A rejection reason is required", path: ["rejectReason"] },
   );
 
 export type InviteStaffInput = z.infer<typeof inviteStaffSchema>;

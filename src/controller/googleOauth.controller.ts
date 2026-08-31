@@ -6,6 +6,7 @@ import {
   revokeGoogleToken,
 } from '@/service/auth/googleOauth.service';
 import { logoutService } from '@/service/auth/auth.service';
+import { sendError, sendSuccess } from '@/utils/apiResponse';
 export const googleLoginController = (
   req: Request,
   res: Response,
@@ -25,22 +26,17 @@ export const googleCallbackController = async (
   try {
     const { code, state, error } = req.query;
     if (error) {
-      return res.status(400).json({
-        message: 'Google login failed',
-        error,
-      });
+      return sendError(res, 400, 'Google login failed', { code: 'GOOGLE_LOGIN_FAILED', details: error });
     }
     if (typeof state !== 'string') {
-      return res.status(400).json({ message: 'Invalid State', error });
+      return sendError(res, 400, 'Invalid State', { code: 'INVALID_OAUTH_STATE' });
     }
     if (!req.session.oauthState || req.session.oauthState !== state) {
-      return res.status(400).json({ message: 'Invalid State', error });
+      return sendError(res, 400, 'Invalid State', { code: 'INVALID_OAUTH_STATE' });
     }
 
     if (typeof code !== 'string') {
-      return res
-        .status(400)
-        .json({ message: 'Missing authorization code', error });
+      return sendError(res, 400, 'Missing authorization code', { code: 'MISSING_AUTHORIZATION_CODE' });
     }
 
     delete req.session.oauthState;
@@ -53,7 +49,7 @@ export const googleCallbackController = async (
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'none',
-      maxAge: 60 * 1000, // 1 phút thôi
+      maxAge: 60 * 1000, // Expires after one minute.
     });
     console.log('FRONTEND_URL:', process.env.FRONTEND_URL);
     console.log('cookies:', req.cookies);
@@ -72,19 +68,19 @@ export const googleLogoutController = async (
   try {
     const userId = req.user?.userId;
     if (!userId) {
-      return res.status(401).json({ message: 'Unauthorized' });
+      return sendError(res, 401, 'Unauthorized', { code: 'UNAUTHORIZED' });
     }
     const { refreshToken } = req.body;
 
     // Revoke Google access token
     await revokeGoogleToken(userId);
 
-    // Revoke app refresh token (tái sử dụng logoutService)
+    // Revoke the app refresh token through logoutService.
     if (refreshToken) {
       await logoutService(refreshToken);
     }
 
-    res.json({ message: 'Đăng xuất thành công' });
+    sendSuccess(res, null, { message: 'Logout successful' });
   } catch (err) {
     next(err);
   }

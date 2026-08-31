@@ -1,7 +1,7 @@
 import { db } from "@/db/prisma";
-import { redisConnection } from "@/config/redis";
 import { serviceListCacheKey } from "@/cache/cacheKeys";
 import { clearServiceListCache } from "@/cache/cacheInvalidation";
+import { cacheAside } from "@/cache/cacheAside";
 import { ApiError } from "@/utils/ApiError";
 import {
   CreateServiceInput,
@@ -14,7 +14,7 @@ export const createService = async (
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
-  if (!shop) throw new ApiError(404, "Shop không tồn tại");
+  if (!shop) throw new ApiError(404, "Shop not found");
   const { options, ...serviceFields } = data;
   const result = await db.service.create({
     data: {
@@ -56,18 +56,13 @@ export const getService = async (shopSlug: string, query: ServiceListQuery = {})
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
-  if (!shop) throw new ApiError(404, "Shop không tồn tại");
+  if (!shop) throw new ApiError(404, "Shop not found");
   const cacheKey = serviceListCacheKey(shopSlug, query);
-  try {
-    const cached = await redisConnection.get(cacheKey);
-    if (cached) return JSON.parse(cached);
-  } catch (error) {
-    console.error("[Redis] service cache read failed:", error);
-  }
-  const page = Math.max(1, Number(query.page) || 1);
-  const limit = Math.min(50, Math.max(1, Number(query.limit) || 5));
-  const search = query.search?.trim();
-  const where: any = {
+  return cacheAside(cacheKey, async () => {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(50, Math.max(1, Number(query.limit) || 5));
+    const search = query.search?.trim();
+    const where: any = {
     shopId: shop.id,
     ...(query.status ? { isActive: query.status === "ACTIVE" } : {}),
     ...(query.category ? { categoryId: query.category } : {}),
@@ -78,8 +73,8 @@ export const getService = async (shopSlug: string, query: ServiceListQuery = {})
         { category: { name: { contains: search, mode: "insensitive" } } },
       ],
     } : {}),
-  };
-  const orderBy: any = query.sort === "NAME_ASC" ? { name: "asc" }
+    };
+    const orderBy: any = query.sort === "NAME_ASC" ? { name: "asc" }
     : query.sort === "NAME_DESC" ? { name: "desc" }
     : query.sort === "PRICE_ASC" ? { basePrice: "asc" }
     : query.sort === "PRICE_DESC" ? { basePrice: "desc" }
@@ -87,7 +82,7 @@ export const getService = async (shopSlug: string, query: ServiceListQuery = {})
     : query.sort === "DURATION_DESC" ? { durationMin: "desc" }
     : { createdAt: "desc" };
 
-  const [items, total, allCount, activeCount, inactiveCount, categoryRows] = await Promise.all([
+    const [items, total, allCount, activeCount, inactiveCount, categoryRows] = await Promise.all([
     db.service.findMany({
       where,
       orderBy,
@@ -107,9 +102,9 @@ export const getService = async (shopSlug: string, query: ServiceListQuery = {})
     db.service.count({ where: { shopId: shop.id, isActive: true } }),
     db.service.count({ where: { shopId: shop.id, isActive: false } }),
     db.service.findMany({ where: { shopId: shop.id }, select: { categoryId: true } }),
-  ]);
-  const totalPages = Math.ceil(total / limit);
-  const result = {
+    ]);
+    const totalPages = Math.ceil(total / limit);
+    const result = {
     items,
     total,
     page: totalPages > 0 ? Math.min(page, totalPages) : 1,
@@ -121,16 +116,15 @@ export const getService = async (shopSlug: string, query: ServiceListQuery = {})
       inactive: inactiveCount,
       categories: new Set(categoryRows.map((row) => row.categoryId).filter(Boolean)).size,
     },
-  };
-  try { await redisConnection.set(cacheKey, JSON.stringify(result), "EX", 3600); }
-  catch (error) { console.error("[Redis] service cache write failed:", error); }
-  return result;
+    };
+    return result;
+  });
 };
 export const getServiceById = async (shopSlug: string, serviceId: string) => {
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
-  if (!shop) throw new ApiError(404, "Shop không tồn tại");
+  if (!shop) throw new ApiError(404, "Shop not found");
   const result = await db.service.findUnique({
     where: {
       id: serviceId,
@@ -148,7 +142,7 @@ export const getServiceById = async (shopSlug: string, serviceId: string) => {
     },
   });
   if (!result || result.shopId !== shop.id) {
-    throw new ApiError(404, "Service không tồn tại");
+    throw new ApiError(404, "Service not found");
   }
   return result;
 };
@@ -156,9 +150,9 @@ export const deleteService = async (shopSlug: string, serviceId: string) => {
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
-  if (!shop) throw new ApiError(404, "Shop không tồn tại");
+  if (!shop) throw new ApiError(404, "Shop not found");
   const service = await db.service.findUnique({ where: { id: serviceId } });
-  if (!service) throw new ApiError(404, "Service không tồn tại");
+  if (!service) throw new ApiError(404, "Service not found");
   const result = await db.service.delete({
     where: {
       id: serviceId,
@@ -176,9 +170,9 @@ export const updateService = async (
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
-  if (!shop) throw new ApiError(404, "Shop không tồn tại");
+  if (!shop) throw new ApiError(404, "Shop not found");
   const service = await db.service.findUnique({ where: { id: serviceId } });
-  if (!service) throw new ApiError(404, "Service không tồn tại");
+  if (!service) throw new ApiError(404, "Service not found");
 
   const {
     options,
@@ -300,7 +294,7 @@ export const countService = async (shopSlug: string) => {
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
-  if (!shop) throw new ApiError(404, "Shop không tồn tại");
+  if (!shop) throw new ApiError(404, "Shop not found");
   const count = await db.service.count({
     where: { shopId: shop.id },
   });

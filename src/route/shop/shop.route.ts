@@ -25,6 +25,10 @@ import notiRouter from "../notification/notification.route";
 import calendarRouter from "../calendar/calendar.route";
 import appointmentRouter from "../appointment/appointment.route";
 import customerRouter from "./customer/customer.route";
+import { getCurrentShopMembershipController } from "@/controller/shop/membership.controller";
+import payrollRouter from "../payroll/payroll.route";
+import financialReportRouter from "../financial-report/financial-report.route";
+import paymentRouter from "../payment/payment.route";
 
 const shopRouter = Router();
 shopRouter.use(authenticate);
@@ -34,6 +38,7 @@ shopRouter.post(
   createShopController,
 );
 shopRouter.get("/", getListShopController);
+shopRouter.get("/:shopSlug/members/me", getCurrentShopMembershipController);
 shopRouter.get("/:shopSlug", requireShopAccess(), getShopDetailController);
 shopRouter.patch(
   "/:shopSlug",
@@ -71,5 +76,8 @@ shopRouter.use("/:shopSlug/notifications", notiRouter);
 shopRouter.use("/:shopSlug/calendar", calendarRouter);
 shopRouter.use("/:shopSlug/appointments", appointmentRouter);
 shopRouter.use("/:shopSlug/customers", customerRouter);
+shopRouter.use("/:shopSlug/payrolls", payrollRouter);
+shopRouter.use("/:shopSlug/financial-report", financialReportRouter);
+shopRouter.use("/:shopSlug/payments", paymentRouter);
 
 export default shopRouter;

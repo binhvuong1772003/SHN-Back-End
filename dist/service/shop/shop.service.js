@@ -11,7 +11,7 @@ const createShopService = async (data, ownerId) => {
         where: { slug: data.slug },
     });
     if (existing)
-        throw new ApiError_1.ApiError(400, "Shop đã tồn tại");
+        throw new ApiError_1.ApiError(400, "Shop already exists");
     const shop = await prisma_1.db.shop.create({
         data: {
             ...data,
@@ -35,7 +35,12 @@ const getListShopService = async (ownerId) => {
     if (!ownerId)
         throw new ApiError_1.ApiError(401, "Unauthorized");
     return prisma_1.db.shop.findMany({
-        where: { ownerId },
+        where: {
+            OR: [
+                { ownerId },
+                { staffMembers: { some: { userId: ownerId, isActive: true } } },
+            ],
+        },
     });
 };
 exports.getListShopService = getListShopService;

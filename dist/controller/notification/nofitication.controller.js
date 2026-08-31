@@ -2,12 +2,13 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteNotificationController = exports.markReadController = exports.getListNotificationController = void 0;
 const notification_service_1 = require("@/service/notification/notification.service");
+const apiResponse_1 = require("@/utils/apiResponse");
 const getListNotificationController = async (req, res, next) => {
     try {
         const shopSlug = req.params.shopSlug;
-        console.log('shopSlug:', shopSlug); // ← log xem có giá trị không
-        const result = await (0, notification_service_1.getListNotification)(shopSlug);
-        res.status(200).json({ success: true, data: result });
+        console.log('shopSlug:', shopSlug);
+        const result = await (0, notification_service_1.getListNotification)(shopSlug, req.query);
+        (0, apiResponse_1.sendSuccess)(res, result.items, { meta: result.meta });
     }
     catch (error) {
         next(error);
@@ -18,7 +19,7 @@ const markReadController = async (req, res, next) => {
     try {
         const id = req.params.id;
         const result = await (0, notification_service_1.markRead)(id);
-        res.status(200).json({ success: true, data: result });
+        (0, apiResponse_1.sendSuccess)(res, result);
     }
     catch (error) {
         next(error);
@@ -29,7 +30,7 @@ const deleteNotificationController = async (req, res, next) => {
     try {
         const id = req.params.id;
         const result = await (0, notification_service_1.deleteNotification)(id);
-        res.status(200).json({ success: true, data: result });
+        (0, apiResponse_1.sendSuccess)(res, result);
     }
     catch (error) {
         next(error);

@@ -10,6 +10,7 @@ import {
 import { Request, Response, NextFunction } from "express";
 import type { RegisterInput } from "@/validation/auth.validate";
 import { ApiError } from "@/utils/ApiError";
+import { sendSuccess } from "@/utils/apiResponse";
 export const registerWithEmailController = async (
   req: Request,
   res: Response,
@@ -18,11 +19,7 @@ export const registerWithEmailController = async (
   try {
     const input = req.body as RegisterInput;
     const user = await registerWithMailService(input);
-    return res.status(201).json({
-      success: true,
-      message: "User register success",
-      data: user,
-    });
+    return sendSuccess(res, user, { statusCode: 201, message: "User register success" });
   } catch (err) {
     next(err);
   }
@@ -35,7 +32,7 @@ export const reSendEmailVerifyController = async (
   try {
     const input = req.body;
     await resendVerificationEmail(input.email);
-    return res.status(200).json("Email Verification Send Success");
+    return sendSuccess(res, null, { message: "Email Verification Send Success" });
   } catch (err) {
     next(err);
   }
@@ -64,11 +61,7 @@ export const verifyEmailController = async (
       secure: process.env.NODE_ENV === "production",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
-    return res.status(200).json({
-      success: true,
-      accessToken: tokens.accessToken,
-      user,
-    });
+    return sendSuccess(res, { accessToken: tokens.accessToken, user });
   } catch (err) {
     next(err);
   }
@@ -94,9 +87,7 @@ export const loginWithEmailController = async (
       secure: process.env.NODE_ENV === "production",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
-    return res
-      .status(200)
-      .json({ success: true, accessToken: tokens.accessToken, user });
+    return sendSuccess(res, { accessToken: tokens.accessToken, user });
   } catch (err: any) {
     next(err);
   }
@@ -109,7 +100,7 @@ export const refresthTokenController = async (
   try {
     const refreshToken = req.cookies.refreshToken;
     if (!refreshToken) {
-      throw new ApiError(401, "Refresh token không hợp lệ");
+      throw new ApiError(401, "Invalid refresh token");
     }
 
     const tokens = await refreshTokenService(refreshToken, {
@@ -124,10 +115,9 @@ export const refresthTokenController = async (
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    return res
-      .status(200)
-      .json({ success: true, accessToken: tokens.accessToken });
+    return sendSuccess(res, { accessToken: tokens.accessToken });
   } catch (err) {
+    res.clearCookie("refreshToken");
     next(err);
   }
 };
@@ -138,10 +128,10 @@ export const logoutController = async (
 ) => {
   try {
     const refreshToken = req.cookies.refreshToken;
-    if (!refreshToken) throw new ApiError(400, "Không có refresh token");
+    if (!refreshToken) throw new ApiError(400, "Refresh token is missing");
     await logoutService(refreshToken);
     res.clearCookie("refreshToken");
-    res.json({ message: "Đăng xuất thành công" });
+    sendSuccess(res, null, { message: "Logout successful" });
   } catch (err) {
     next(err);
   }
@@ -154,7 +144,7 @@ export const getMeController = async (
   try {
     res.set("Cache-Control", "no-store");
     const user = await getMeService(req.user?.userId!);
-    res.json({ success: true, data: user });
+    sendSuccess(res, user);
   } catch (err) {
     next(err);
   }

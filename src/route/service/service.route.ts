@@ -21,6 +21,7 @@ import multer from "multer";
 import { upload } from "@/middleware/upload.middleware";
 import { validateMultipartBody } from "@/middleware/validateMultipartBody.middleware";
 import { uploadServiceImage } from "@/middleware/uploadImageToCloudinary.middleware";
+import { idParamSchema } from "@/validation/common.validate";
 
 const serviceRouter = Router({ mergeParams: true });
 serviceRouter.use(requireShopAccess());
@@ -38,11 +39,11 @@ serviceRouter.use(categoryRouter);
 serviceRouter.use("/addons", addonRouter);
 serviceRouter.use("/packages", servicePackageRouter);
 serviceRouter.use("/:serviceId/options", serviceOptionRouter);
-serviceRouter.get("/:serviceId", getServiceByIdController);
+serviceRouter.get("/:serviceId", validate({ params: idParamSchema("serviceId") }), getServiceByIdController);
 serviceRouter.patch(
   "/:serviceId",
   requireShopAccess("OWNER"),
-  validate({ body: updateServiceSchema }),
+  validate({ params: idParamSchema("serviceId"), body: updateServiceSchema }),
   updateServiceController,
 );
 

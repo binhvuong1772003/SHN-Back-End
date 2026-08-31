@@ -2,12 +2,13 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteServiceOptionController = exports.updateServiceOptionCtrl = exports.getServiceOptionByIdController = exports.getServiceOptionsController = exports.createServiceOptionController = void 0;
 const option_service_1 = require("@/service/service/option.service");
+const apiResponse_1 = require("@/utils/apiResponse");
 const createServiceOptionController = async (req, res, next) => {
     try {
         const shopSlug = req.params.shopSlug;
         const serviceId = req.params.serviceId;
         const result = await (0, option_service_1.createServiceOption)(req.body, shopSlug, serviceId);
-        res.status(201).json({ success: true, data: result });
+        (0, apiResponse_1.sendSuccess)(res, result, { statusCode: 201 });
     }
     catch (err) {
         next(err);
@@ -20,7 +21,7 @@ const getServiceOptionsController = async (req, res, next) => {
         console.log(shopSlug);
         const serviceId = req.params.serviceId;
         const result = await (0, option_service_1.getServiceOptions)(serviceId, shopSlug);
-        res.status(200).json({ success: true, data: result });
+        (0, apiResponse_1.sendSuccess)(res, result);
     }
     catch (err) {
         next(err);
@@ -33,7 +34,7 @@ const getServiceOptionByIdController = async (req, res, next) => {
         const serviceId = req.params.serviceId;
         const optionId = req.params.optionId;
         const result = await (0, option_service_1.getServiceOptionById)(optionId, shopSlug, serviceId);
-        res.status(200).json({ success: true, data: result });
+        (0, apiResponse_1.sendSuccess)(res, result);
     }
     catch (err) {
         next(err);
@@ -46,7 +47,7 @@ const updateServiceOptionCtrl = async (req, res, next) => {
         const serviceId = req.params.serviceId;
         const optionId = req.params.optionId;
         const result = await (0, option_service_1.updateServiceOptionController)(req.body, shopSlug, serviceId, optionId);
-        res.status(200).json({ success: true, data: result });
+        (0, apiResponse_1.sendSuccess)(res, result);
     }
     catch (err) {
         next(err);
@@ -59,7 +60,7 @@ const deleteServiceOptionController = async (req, res, next) => {
         const serviceId = req.params.serviceId;
         const optionId = req.params.optionId;
         await (0, option_service_1.deleteServiceOption)(shopSlug, serviceId, optionId);
-        res.status(200).json({ success: true, message: 'Xóa option thành công' });
+        (0, apiResponse_1.sendSuccess)(res, null, { message: 'Option deleted successfully' });
     }
     catch (err) {
         next(err);

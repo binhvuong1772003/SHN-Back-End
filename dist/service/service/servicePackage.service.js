@@ -6,7 +6,7 @@ const ApiError_1 = require("@/utils/ApiError");
 const createServicePackage = async (data, shopSlug) => {
     const shop = await prisma_1.db.shop.findUnique({ where: { slug: shopSlug } });
     if (!shop)
-        throw new ApiError_1.ApiError(404, 'Shop không tồn tại');
+        throw new ApiError_1.ApiError(404, 'Shop not found');
     const { items, addons, ...packageData } = data;
     const result = await prisma_1.db.servicePackage.create({
         data: {
@@ -22,7 +22,7 @@ const createServicePackage = async (data, shopSlug) => {
             addons: addons
                 ? {
                     create: addons.map((addon) => ({
-                        addonId: addon.addonId, // ← đổi từ optionValueId sang addonId
+                        addonId: addon.addonId, // Use addonId instead of optionValueId.
                         extraPrice: addon.extraPrice,
                     })),
                 }
@@ -36,7 +36,7 @@ const createServicePackage = async (data, shopSlug) => {
                 },
             },
             addons: {
-                include: { addon: true }, // ← đổi từ optionValue sang addon
+                include: { addon: true }, // Include the addon relation.
             },
         },
     });
@@ -46,7 +46,7 @@ exports.createServicePackage = createServicePackage;
 const getServicePackages = async (shopSlug) => {
     const shop = await prisma_1.db.shop.findUnique({ where: { slug: shopSlug } });
     if (!shop)
-        throw new ApiError_1.ApiError(404, 'Shop không tồn tại');
+        throw new ApiError_1.ApiError(404, 'Shop not found');
     return prisma_1.db.servicePackage.findMany({
         where: { shopId: shop.id },
         include: {
@@ -66,7 +66,7 @@ exports.getServicePackages = getServicePackages;
 const getServicePackageById = async (shopSlug, packageId) => {
     const shop = await prisma_1.db.shop.findUnique({ where: { slug: shopSlug } });
     if (!shop)
-        throw new ApiError_1.ApiError(404, 'Shop không tồn tại');
+        throw new ApiError_1.ApiError(404, 'Shop not found');
     const result = await prisma_1.db.servicePackage.findUnique({
         where: { id: packageId },
         include: {
@@ -82,7 +82,7 @@ const getServicePackageById = async (shopSlug, packageId) => {
         },
     });
     if (!result || result.shopId !== shop.id) {
-        throw new ApiError_1.ApiError(404, 'Package không tồn tại');
+        throw new ApiError_1.ApiError(404, 'Package not found');
     }
     return result;
 };
@@ -90,12 +90,12 @@ exports.getServicePackageById = getServicePackageById;
 const updateServicePackage = async (shopSlug, packageId, data) => {
     const shop = await prisma_1.db.shop.findUnique({ where: { slug: shopSlug } });
     if (!shop)
-        throw new ApiError_1.ApiError(404, 'Shop không tồn tại');
+        throw new ApiError_1.ApiError(404, 'Shop not found');
     const existing = await prisma_1.db.servicePackage.findUnique({
         where: { id: packageId },
     });
     if (!existing || existing.shopId !== shop.id) {
-        throw new ApiError_1.ApiError(404, 'Package không tồn tại');
+        throw new ApiError_1.ApiError(404, 'Package not found');
     }
     const { items, addons, ...packageData } = data;
     await prisma_1.db.$transaction(async (tx) => {
@@ -139,12 +139,12 @@ exports.updateServicePackage = updateServicePackage;
 const deleteServicePackage = async (shopSlug, packageId) => {
     const shop = await prisma_1.db.shop.findUnique({ where: { slug: shopSlug } });
     if (!shop)
-        throw new ApiError_1.ApiError(404, 'Shop không tồn tại');
+        throw new ApiError_1.ApiError(404, 'Shop not found');
     const existing = await prisma_1.db.servicePackage.findUnique({
         where: { id: packageId },
     });
     if (!existing || existing.shopId !== shop.id) {
-        throw new ApiError_1.ApiError(404, 'Package không tồn tại');
+        throw new ApiError_1.ApiError(404, 'Package not found');
     }
     return prisma_1.db.servicePackage.delete({ where: { id: packageId } });
 };

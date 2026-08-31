@@ -1,0 +1,173 @@
+name: Backend CD
+
+on:
+  workflow_run:
+    workflows:
+      - Backend CI
+    types:
+      - completed
+    branches:
+      - main
+
+concurrency:
+  group: backend-production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  deploy:
+    name: Build and deploy backend
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
+
+    steps:
+      - name: Checkout deployed commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set image reference
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push production image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ${{ steps.image.outputs.name }}:${{ env.IMAGE_TAG }}
+            ${{ steps.image.outputs.name }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+
+      - name: Sync production Compose files
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          set -euo pipefail
+          scp -i ~/.ssh/deploy_key -r \
+            docker-compose.prod.yml \
+            monitoring \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
+
+      - name: Copy GHCR read token to deploy host
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          token_file="$RUNNER_TEMP/ghcr-read-token"
+          remote_token="/tmp/shn-ghcr-token-${GITHUB_RUN_ID}"
+          printf '%s' "$GHCR_READ_TOKEN" > "$token_file"
+          chmod 600 "$token_file"
+          scp -i ~/.ssh/deploy_key \
+            "$token_file" \
+            "$DEPLOY_USER@$DEPLOY_HOST:$remote_token"
+          rm -f "$token_file"
+          printf 'REMOTE_TOKEN=%s\n' "$remote_token" >> "$GITHUB_ENV"
+
+      - name: Deploy with production Compose
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          IMAGE_NAME: ${{ steps.image.outputs.name }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key "$DEPLOY_USER@$DEPLOY_HOST" bash -s -- \
+            "$DEPLOY_PATH" \
+            "$REMOTE_TOKEN" \
+            "$GHCR_USERNAME" \
+            "$IMAGE_NAME" \
+            "$IMAGE_TAG" <<'REMOTE_SCRIPT'
+          set -euo pipefail
+
+          deploy_path="$1"
+          remote_token="$2"
+          ghcr_username="$3"
+          image_name="$4"
+          image_tag="$5"
+          image="$image_name:$image_tag"
+
+          cleanup() {
+            rm -f "$remote_token"
+          }
+          trap cleanup EXIT
+
+          cd "$deploy_path"
+
+          printf '%s' "$(cat "$remote_token")" | docker login ghcr.io \
+            --username "$ghcr_username" \
+            --password-stdin
+
+          docker pull "$image"
+          docker tag "$image" shn-backend:production
+
+          docker compose \
+            --env-file .env.production \
+            -f docker-compose.prod.yml \
+            pull redis prometheus grafana
+
+          docker compose \
+            --env-file .env.production \
+            -f docker-compose.prod.yml \
+            up -d --no-build --remove-orphans
+
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/metrics > /dev/null; then
+              echo "Backend is healthy."
+              break
+            fi
+
+            if [ "$attempt" -eq 30 ]; then
+              docker compose \
+                --env-file .env.production \
+                -f docker-compose.prod.yml \
+                logs --tail=100 backend
+              exit 1
+            fi
+
+            sleep 2
+          done
+
+          docker image prune -f
+          REMOTE_SCRIPT
+
+      - name: Remove temporary SSH files
+        if: always()
+        run: rm -f ~/.ssh/deploy_key ~/.ssh/known_hosts

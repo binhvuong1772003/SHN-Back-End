@@ -7,7 +7,7 @@ export const createServicePackage = async (
   shopSlug: string
 ) => {
   const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
-  if (!shop) throw new ApiError(404, 'Shop không tồn tại');
+  if (!shop) throw new ApiError(404, 'Shop not found');
 
   const { items, addons, ...packageData } = data;
 
@@ -25,7 +25,7 @@ export const createServicePackage = async (
       addons: addons
         ? {
             create: addons.map((addon) => ({
-              addonId: addon.addonId, // ← đổi từ optionValueId sang addonId
+              addonId: addon.addonId, // Use addonId instead of optionValueId.
               extraPrice: addon.extraPrice,
             })),
           }
@@ -39,7 +39,7 @@ export const createServicePackage = async (
         },
       },
       addons: {
-        include: { addon: true }, // ← đổi từ optionValue sang addon
+        include: { addon: true }, // Include the addon relation.
       },
     },
   });
@@ -49,7 +49,7 @@ export const createServicePackage = async (
 
 export const getServicePackages = async (shopSlug: string) => {
   const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
-  if (!shop) throw new ApiError(404, 'Shop không tồn tại');
+  if (!shop) throw new ApiError(404, 'Shop not found');
 
   return db.servicePackage.findMany({
     where: { shopId: shop.id },
@@ -72,7 +72,7 @@ export const getServicePackageById = async (
   packageId: string
 ) => {
   const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
-  if (!shop) throw new ApiError(404, 'Shop không tồn tại');
+  if (!shop) throw new ApiError(404, 'Shop not found');
 
   const result = await db.servicePackage.findUnique({
     where: { id: packageId },
@@ -90,7 +90,7 @@ export const getServicePackageById = async (
   });
 
   if (!result || result.shopId !== shop.id) {
-    throw new ApiError(404, 'Package không tồn tại');
+    throw new ApiError(404, 'Package not found');
   }
 
   return result;
@@ -102,13 +102,13 @@ export const updateServicePackage = async (
   data: Partial<CreateServicePackageInput>
 ) => {
   const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
-  if (!shop) throw new ApiError(404, 'Shop không tồn tại');
+  if (!shop) throw new ApiError(404, 'Shop not found');
 
   const existing = await db.servicePackage.findUnique({
     where: { id: packageId },
   });
   if (!existing || existing.shopId !== shop.id) {
-    throw new ApiError(404, 'Package không tồn tại');
+    throw new ApiError(404, 'Package not found');
   }
 
   const { items, addons, ...packageData } = data;
@@ -159,13 +159,13 @@ export const deleteServicePackage = async (
   packageId: string
 ) => {
   const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
-  if (!shop) throw new ApiError(404, 'Shop không tồn tại');
+  if (!shop) throw new ApiError(404, 'Shop not found');
 
   const existing = await db.servicePackage.findUnique({
     where: { id: packageId },
   });
   if (!existing || existing.shopId !== shop.id) {
-    throw new ApiError(404, 'Package không tồn tại');
+    throw new ApiError(404, 'Package not found');
   }
 
   return db.servicePackage.delete({ where: { id: packageId } });

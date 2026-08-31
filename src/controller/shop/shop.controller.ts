@@ -13,6 +13,7 @@ import {
   updateBusinessHoursService,
 } from "@/service/shop/shop.service";
 import { CLOUDINARY_FOLDERS } from "@/utils/cloudinary";
+import { sendSuccess } from "@/utils/apiResponse";
 export const createShopController = async (
   req: Request,
   res: Response,
@@ -22,7 +23,7 @@ export const createShopController = async (
     const input = req.body as CreateShopInput;
     const ownerId = req.user?.userId as string;
     const shop = await createShopService(input, ownerId);
-    res.status(201).json({ success: true, data: shop });
+    sendSuccess(res, shop, { statusCode: 201 });
   } catch (error) {
     next(error);
   }
@@ -35,7 +36,7 @@ export const getListShopController = async (
   try {
     const ownerId = req.user?.userId as string;
     const shops = await getListShopService(ownerId);
-    res.status(200).json({ success: true, data: shops });
+    sendSuccess(res, shops);
   } catch (error) {
     next(error);
   }
@@ -47,7 +48,7 @@ export const getShopDetailController = async (
 ) => {
   try {
     const shopSlug = req.params.shopSlug as string;
-    res.status(200).json({ success: true, data: req.shop });
+    sendSuccess(res, req.shop);
   } catch (error) {
     next(error);
   }
@@ -63,7 +64,7 @@ export const updateShopController = async (
       req.params.shopSlug as string,
       req.body,
     );
-    res.status(200).json({ success: true, data: shop });
+    sendSuccess(res, shop);
   } catch (error) {
     next(error);
   }
@@ -79,7 +80,7 @@ export const uploadShopLogoController = async (
       CLOUDINARY_FOLDERS.SHOP_LOGO,
       req.params.shopSlug as string,
     );
-    res.status(200).json({ success: true, data: shop });
+    sendSuccess(res, shop);
   } catch (error) {
     next(error);
   }
@@ -95,7 +96,7 @@ export const uploadShopBannerController = async (
       CLOUDINARY_FOLDERS.SHOP_COVER,
       req.params.shopSlug as string,
     );
-    res.status(200).json({ success: true, data: shop });
+    sendSuccess(res, shop);
   } catch (error) {
     next(error);
   }
@@ -109,7 +110,7 @@ export const getBusinessHoursController = async (
     const businessHours = await getBusinessHoursService(
       req.params.shopSlug as string,
     );
-    res.status(200).json({ success: true, data: businessHours });
+    sendSuccess(res, businessHours);
   } catch (error) {
     next(error);
   }
@@ -124,7 +125,7 @@ export const updateBusinessHoursController = async (
       req.params.shopSlug as string,
       req.body as BusinessHoursInput,
     );
-    res.status(200).json({ success: true, data: businessHours });
+    sendSuccess(res, businessHours);
   } catch (error) {
     next(error);
   }

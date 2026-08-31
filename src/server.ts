@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import { createServer } from 'http';
 import app from './app';
 import { initSocket } from './socket';
+import '@/jobs/attendance.job';
 
 dotenv.config();
 process.env.TZ = 'Asia/Ho_Chi_Minh';

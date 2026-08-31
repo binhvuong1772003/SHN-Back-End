@@ -12,15 +12,21 @@ import {
   responseOffDaySchema,
 } from '@/validation/staff.validate';
 import { validate } from '@/middleware/validation.middleware';
+import { idParamSchema, offDayListQuerySchema } from '@/validation/common.validate';
 const offDayRouter = Router({ mergeParams: true });
 offDayRouter.use(authenticate);
 offDayRouter.use(requireShopAccess("STAFF"));
 offDayRouter.post(
   '/:staffId/off-days',
-  validate({ body: requestOffDaySchema }),
+  validate({ params: idParamSchema('staffId'), body: requestOffDaySchema }),
   requestOffDayController
 );
-offDayRouter.get('/off-days', getListOffDayController);
-offDayRouter.get('/off-days/:offDayId', getDetailDayOffController);
-offDayRouter.patch('/off-days/:offDayId', responseOffDayController);
+offDayRouter.get('/off-days', validate({ query: offDayListQuerySchema }), getListOffDayController);
+offDayRouter.get('/off-days/:offDayId', validate({ params: idParamSchema('offDayId') }), getDetailDayOffController);
+offDayRouter.patch(
+  '/off-days/:offDayId',
+  requireShopAccess('MANAGER'),
+  validate({ params: idParamSchema('offDayId'), body: responseOffDaySchema }),
+  responseOffDayController,
+);
 export default offDayRouter;

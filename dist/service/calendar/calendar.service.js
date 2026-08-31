@@ -31,38 +31,38 @@ const validateBookingSlot = async (input) => {
     const openMinutes = openHour * 60 + openMin;
     const closeMinutes = closeHour * 60 + closeMin;
     if (startMinutes < openMinutes || endMinutes > closeMinutes) {
-        throw new ApiError_1.ApiError(400, `Shop chỉ mở cửa từ ${shop.openTime} đến ${shop.closeTime}`);
+        throw new ApiError_1.ApiError(400, `Shop is open only from ${shop.openTime} to ${shop.closeTime}`);
     }
     // Validate date range
     const today = dayjs_1.default.tz(new Date(), shop.timezone).startOf("day").toDate();
     const maxDate = new Date(today);
     maxDate.setDate(maxDate.getDate() + (shop.settings?.maxAdvanceBookingDays ?? 15));
     if (appointmentDate < today) {
-        throw new ApiError_1.ApiError(400, "Không thể đặt lịch trong quá khứ");
+        throw new ApiError_1.ApiError(400, "Appointments cannot be booked in the past");
     }
     if (appointmentDate > maxDate) {
-        throw new ApiError_1.ApiError(400, `Chỉ đặt trước tối đa ${shop.settings?.maxAdvanceBookingDays ?? 15} ngày`);
+        throw new ApiError_1.ApiError(400, `Appointments can only be booked up to ${shop.settings?.maxAdvanceBookingDays ?? 15} days in advance`);
     }
     // Validate work day
     const dayOfWeek = dayjs_1.default.tz(date, shop.timezone).day();
     if (!shop.workDays.map((d) => (d === 7 ? 0 : d)).includes(dayOfWeek)) {
-        throw new ApiError_1.ApiError(400, "Shop không làm việc ngày này");
+        throw new ApiError_1.ApiError(400, "The shop is closed on this day");
     }
     // Check staff availability
     if (staffId) {
         // Validate ObjectID format
         if (!/^[0-9a-fA-F]{24}$/.test(staffId)) {
-            throw new ApiError_1.ApiError(400, "staffId không hợp lệ");
+            throw new ApiError_1.ApiError(400, "Invalid staffId");
         }
         const { available, reason } = await (0, slot_helper_1.isStaffAvailable)(staffId, shop.id, dayOfWeek, appointmentDate);
         if (!available) {
-            throw new ApiError_1.ApiError(400, reason || "Nhân viên không khả dụng");
+            throw new ApiError_1.ApiError(400, reason || "Staff is unavailable");
         }
     }
     // Check slot availability
     const { available: slotAvailable, reason: slotReason } = await (0, slot_helper_1.checkSlotAvailability)(shop.id, appointmentDate, startTime, endTime, staffId);
     if (!slotAvailable) {
-        throw new ApiError_1.ApiError(409, slotReason || "Slot không khả dụng");
+        throw new ApiError_1.ApiError(409, slotReason || "Slot is unavailable");
     }
     return {
         valid: true,
@@ -85,10 +85,10 @@ const getAvailableSlots = async (input) => {
     const maxDate = new Date(today);
     maxDate.setDate(maxDate.getDate() + (shop.settings?.maxAdvanceBookingDays ?? 15));
     if (appointmentDate < today) {
-        throw new ApiError_1.ApiError(400, "Không thể xem lịch trong quá khứ");
+        throw new ApiError_1.ApiError(400, "Past availability cannot be viewed");
     }
     if (appointmentDate > maxDate) {
-        throw new ApiError_1.ApiError(400, `Chỉ xem lịch tối đa ${shop.settings?.maxAdvanceBookingDays ?? 15} ngày`);
+        throw new ApiError_1.ApiError(400, `Availability can only be viewed up to ${shop.settings?.maxAdvanceBookingDays ?? 15} days in advance`);
     }
     // Check work day
     const dayOfWeek = dayjs_1.default.tz(date, shop.timezone).day();
@@ -97,7 +97,7 @@ const getAvailableSlots = async (input) => {
             date: appointmentDate,
             isWorkDay: false,
             slots: [],
-            message: "Shop không làm việc ngày này",
+            message: "The shop is closed on this day",
         };
     }
     // Check staff availability if staffId provided
@@ -109,7 +109,7 @@ const getAvailableSlots = async (input) => {
                 isWorkDay: true,
                 staffAvailable: false,
                 slots: [],
-                message: reason || "Nhân viên không khả dụng",
+                message: reason || "Staff is unavailable",
             };
         }
     }
@@ -144,10 +144,10 @@ const getAllSlots = async (shopSlug, date, durationMin) => {
     const maxDate = new Date(today);
     maxDate.setDate(maxDate.getDate() + (shop.settings?.maxAdvanceBookingDays ?? 15));
     if (appointmentDate < today) {
-        throw new ApiError_1.ApiError(400, "Không thể xem lịch trong quá khứ");
+        throw new ApiError_1.ApiError(400, "Past availability cannot be viewed");
     }
     if (appointmentDate > maxDate) {
-        throw new ApiError_1.ApiError(400, `Chỉ xem lịch tối đa ${shop.settings?.maxAdvanceBookingDays ?? 15} ngày`);
+        throw new ApiError_1.ApiError(400, `Availability can only be viewed up to ${shop.settings?.maxAdvanceBookingDays ?? 15} days in advance`);
     }
     // Check work day
     const dayOfWeek = dayjs_1.default.tz(date, shop.timezone).day();
@@ -156,7 +156,7 @@ const getAllSlots = async (shopSlug, date, durationMin) => {
             date: appointmentDate,
             isWorkDay: false,
             slots: [],
-            message: "Shop không làm việc ngày này",
+            message: "The shop is closed on this day",
         };
     }
     // Generate all possible slots
@@ -186,7 +186,7 @@ const getTimeSlots = async (shopSlug, date) => {
             date: appointmentDate,
             isWorkDay: false,
             slots: [],
-            message: "Shop không làm việc ngày này",
+            message: "The shop is closed on this day",
         };
     }
     // Generate all time slots based on interval only (for UI rendering)
@@ -225,7 +225,7 @@ const getAppointmentsWithSlots = async (shopSlug, date) => {
     }
     const selectedDate = dayjs_1.default.tz(date, shop.timezone);
     if (!selectedDate.isValid()) {
-        throw new ApiError_1.ApiError(400, "Ngày không hợp lệ");
+        throw new ApiError_1.ApiError(400, "Invalid date");
     }
     const appointmentDate = selectedDate.startOf("day").toDate();
     const dayOfWeek = selectedDate.day();
@@ -237,7 +237,7 @@ const getAppointmentsWithSlots = async (shopSlug, date) => {
             isWorkDay: false,
             schedule: null,
             appointments: [],
-            message: "Shop không làm việc ngày này",
+            message: "The shop is closed on this day",
         };
     }
     const appointments = await prisma_1.db.appointment.findMany({

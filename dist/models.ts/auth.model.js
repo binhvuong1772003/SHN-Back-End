@@ -14,9 +14,8 @@ const findUserByEmail = async (email) => {
         select: {
             id: true,
             email: true,
-            password: true,
+            passwordHash: true,
             role: true,
-            // nếu login cần
         },
     });
 };
@@ -26,30 +25,30 @@ const createUser = (data) => {
 };
 exports.createUser = createUser;
 const updateRefreshToken = (userId, refreshToken) => {
-    return prisma_1.db.user.update({
-        where: { id: userId },
-        data: { refreshToken },
+    return prisma_1.db.refreshToken.updateMany({
+        where: { userId },
+        data: { isRevoked: refreshToken === null },
     });
 };
 exports.updateRefreshToken = updateRefreshToken;
 const createVerifyToken = (userId, token, expiresAt) => {
-    return prisma_1.db.emailVerificationToken.create({
+    return prisma_1.db.emailVerification.create({
         data: {
             userId,
             token,
-            expiresAt, // đúng tên field
+            expiresAt,
         },
     });
 };
 exports.createVerifyToken = createVerifyToken;
 const findVerifyToken = async (token) => {
-    return prisma_1.db.emailVerificationToken.findUnique({
+    return prisma_1.db.emailVerification.findUnique({
         where: { token },
     });
 };
 exports.findVerifyToken = findVerifyToken;
 const deleteVerifyToken = async (token) => {
-    return prisma_1.db.emailVerificationToken.delete({
+    return prisma_1.db.emailVerification.delete({
         where: { token },
     });
 };

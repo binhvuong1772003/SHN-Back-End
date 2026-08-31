@@ -57,8 +57,8 @@ const getAppointmentsWithGridPosition = async (shopId, date, timeSlots) => {
         return index !== -1 ? index + 1 : timeSlots.length + 1;
     };
     const newAppointments = appointments.map((apt) => {
-        // Tìm index của startTime và endTime trong timeSlots array
-        const gridRowStart = timeSlots.indexOf(apt.startTime) + 1; // +1 vì grid row bắt đầu từ 1
+        // Find the start and end indexes in the timeSlots array.
+        const gridRowStart = timeSlots.indexOf(apt.startTime) + 1; // Grid rows start at 1.
         const gridRowEnd = getGridRowEnd(apt.endTime);
         return {
             ...apt,
@@ -102,15 +102,15 @@ const isStaffAvailable = async (staffId, shopId, dayOfWeek, date) => {
         where: { shopId, id: staffId, isActive: true },
     });
     if (!staff)
-        return { available: false, reason: "Staff không tồn tại" };
-    // Check lịch làm việc theo thứ
+        return { available: false, reason: "Staff not found" };
+    // Check the weekday schedule.
     const schedule = await prisma_1.db.staffSchedule.findFirst({
         where: { shopStaffId: staff.id, dayOfWeek },
     });
     if (!schedule || schedule.isOff) {
-        return { available: false, reason: "Staff không làm ngày này" };
+        return { available: false, reason: "Staff is not scheduled to work on this day" };
     }
-    // Check off day được duyệt
+    // Check approved leave days.
     const offDay = await prisma_1.db.staffOffDay.findFirst({
         where: {
             shopStaffId: staff.id,
@@ -120,7 +120,7 @@ const isStaffAvailable = async (staffId, shopId, dayOfWeek, date) => {
         },
     });
     if (offDay)
-        return { available: false, reason: "Staff đang nghỉ phép" };
+        return { available: false, reason: "Staff is on leave" };
     return { available: true };
 };
 exports.isStaffAvailable = isStaffAvailable;
@@ -154,7 +154,7 @@ const checkSlotAvailability = async (shopId, date, startTime, endTime, staffId) 
     if (conflict) {
         return {
             available: false,
-            reason: "Slot này đã có người đặt, vui lòng chọn giờ khác",
+            reason: "This slot is already booked; please choose another time",
         };
     }
     return { available: true };

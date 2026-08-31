@@ -12,6 +12,7 @@ import crypto from "crypto";
 export interface AccessTokenPayload {
   userId: string;
   role: UserRole;
+  tokenVersion: number;
 }
 
 export interface RefreshTokenPayload {
@@ -50,16 +51,16 @@ export const verifyRefreshToken = (token: string): RefreshTokenPayload => {
   return jwt.verify(token, jwtConfig.refreshTokenSecret) as RefreshTokenPayload;
 };
 // ─── Generate opaque refresh token (random) ────────────────
-// Dùng cách này thay vì JWT để dễ revoke
+// This approach makes token revocation easier than JWT.
 export const generateOpaqueToken = (): string => {
   return crypto.randomBytes(64).toString("hex");
 };
 
-// ─── Hash token để lưu DB (không lưu plaintext) ────────────
+// Hash the token before storing it in the database.
 export const hashToken = (token: string): string => {
   return crypto.createHash("sha256").update(token).digest("hex");
 };
-// ─── Tính expiresAt từ string (e.g. "30d") ─────────────────
+// Calculate expiresAt from a duration string (for example, "30d").
 export const getExpiresAt = (duration: string): Date => {
   const units: Record<string, number> = {
     s: 1000,

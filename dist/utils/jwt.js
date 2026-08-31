@@ -38,17 +38,17 @@ const verifyRefreshToken = (token) => {
 };
 exports.verifyRefreshToken = verifyRefreshToken;
 // ─── Generate opaque refresh token (random) ────────────────
-// Dùng cách này thay vì JWT để dễ revoke
+// This approach makes token revocation easier than JWT.
 const generateOpaqueToken = () => {
     return crypto_1.default.randomBytes(64).toString("hex");
 };
 exports.generateOpaqueToken = generateOpaqueToken;
-// ─── Hash token để lưu DB (không lưu plaintext) ────────────
+// Hash the token before storing it in the database.
 const hashToken = (token) => {
     return crypto_1.default.createHash("sha256").update(token).digest("hex");
 };
 exports.hashToken = hashToken;
-// ─── Tính expiresAt từ string (e.g. "30d") ─────────────────
+// Calculate expiresAt from a duration string (for example, "30d").
 const getExpiresAt = (duration) => {
     const units = {
         s: 1000,

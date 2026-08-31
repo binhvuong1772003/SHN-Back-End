@@ -7,7 +7,7 @@ const getTopCustomer = async (shopSlug, limit = 5) => {
     const shop = await prisma_1.db.shop.findUnique({ where: { slug: shopSlug } });
     if (!shop)
         throw new ApiError_1.ApiError(404, "Shop not found");
-    // shopId trong MongoDB là ObjectId, cần dùng $oid
+    // shopId is a MongoDB ObjectId and must use $oid.
     const result = await prisma_1.db.appointment.aggregateRaw({
         pipeline: [
             {

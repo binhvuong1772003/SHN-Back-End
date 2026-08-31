@@ -8,7 +8,7 @@ const ioredis_1 = __importDefault(require("ioredis"));
 exports.redisConnection = new ioredis_1.default({
     host: process.env.REDIS_HOST ?? "127.0.0.1",
     port: Number(process.env.REDIS_PORT ?? 6379),
-    // BullMQ yêu cầu khi dùng ioredis connection cho Worker
+    // BullMQ requires this setting when sharing an ioredis connection with a worker.
     maxRetriesPerRequest: null,
 });
 exports.redisConnection.on("connect", () => {

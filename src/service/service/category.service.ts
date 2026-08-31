@@ -11,7 +11,7 @@ export const createCategory = async (
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
-  if (!shop) throw new ApiError(404, 'Shop không tồn tại');
+  if (!shop) throw new ApiError(404, 'Shop not found');
   const result = await db.serviceCategory.create({
     data: {
       shopId: shop.id,
@@ -37,7 +37,7 @@ export const getCategories = async (shopSlug: string) => {
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
-  if (!shop) throw new ApiError(404, 'Shop không tồn tại');
+  if (!shop) throw new ApiError(404, 'Shop not found');
   const result = await db.serviceCategory.findMany({
     where: { shopId: shop.id },
   });
@@ -47,6 +47,6 @@ export const getCategoryById = async (id: string) => {
   const result = await db.serviceCategory.findUnique({
     where: { id },
   });
-  if (!result) throw new ApiError(404, 'Category không tồn tại');
+  if (!result) throw new ApiError(404, 'Category not found');
   return result;
 };
