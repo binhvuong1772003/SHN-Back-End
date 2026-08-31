@@ -21,12 +21,33 @@ initSentry();
 app.use(cookieParser());
 
 app.use(helmet());
+const configuredOrigins =
+  process.env.CORS_ORIGINS ??
+  (process.env.NODE_ENV === "production"
+    ? (process.env.FRONTEND_URL ?? "")
+    : "http://localhost:5173");
+
+const allowedOrigins = new Set(
+  configuredOrigins
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+);
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: (origin, callback) => {
+      // Cho phép curl, Prometheus và server-to-server request
+      if (!origin || allowedOrigins.has(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error("Origin is not allowed by CORS"));
+    },
     credentials: true,
   }),
 );
+
 app.use(morgan("dev"));
 app.use(express.json());
 app.use(metricsMiddleware);
