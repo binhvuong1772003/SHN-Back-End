@@ -8,7 +8,7 @@
     "dev:tsx": "tsx watch --clear-screen=false src/server.ts",
     "dev:worker": "tsx watch src/workers/index.ts",
     "dev:staff-invite-worker": "tsx watch src/workers/staff-invite.worker.ts",
-    "build": "tsc",
+    "build": "tsc && tsc-alias",
     "start": "node dist/server.js",
     "start:worker": "node dist/workers/index.js",
     "start:staff-invite-worker": "node dist/workers/staff-invite.worker.js",
@@ -63,6 +63,7 @@
     "@types/qrcode": "^1.5.6",
     "nodemon": "^3.1.9",
     "prisma": "^6.7.0",
+    "tsc-alias": "^1.9.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }
