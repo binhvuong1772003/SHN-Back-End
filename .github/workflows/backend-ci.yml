@@ -15,6 +15,9 @@ jobs:
     permissions:
       contents: read
 
+    env:
+      DATABASE_URL: mongodb://127.0.0.1:27017/shn_ci
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
