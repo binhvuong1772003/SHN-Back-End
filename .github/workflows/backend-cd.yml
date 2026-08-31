@@ -71,7 +71,7 @@ jobs:
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
 
-      - name: Sync production Compose files
+      - name: Sync production files
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
@@ -81,6 +81,7 @@ jobs:
           scp -i ~/.ssh/deploy_key -r \
             docker-compose.prod.yml \
             monitoring \
+            nginx \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
 
       - name: Copy GHCR read token to deploy host

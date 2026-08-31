@@ -14,12 +14,26 @@ x-backend-image: &backend-image
   restart: unless-stopped
 
 services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: shn-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./certbot/www:/var/www/certbot:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
   backend:
     <<: *backend-image
     container_name: shn-backend
     command: ["node", "dist/server.js"]
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       redis:
         condition: service_healthy
