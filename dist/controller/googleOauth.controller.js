@@ -8,7 +8,7 @@ const googleLoginController = (req, res, next) => {
     const state = (0, googleOauth_service_1.generateOAuthStateService)();
     req.session.oauthState = state;
     const authUrl = (0, googleOauth_service_1.generateGoogleUrlService)(state);
-    console.log('authUrl:', authUrl);
+    console.log("authUrl:", authUrl);
     res.redirect(authUrl);
 };
 exports.googleLoginController = googleLoginController;
@@ -16,31 +16,42 @@ const googleCallbackController = async (req, res, next) => {
     try {
         const { code, state, error } = req.query;
         if (error) {
-            return (0, apiResponse_1.sendError)(res, 400, 'Google login failed', { code: 'GOOGLE_LOGIN_FAILED', details: error });
+            return (0, apiResponse_1.sendError)(res, 400, "Google login failed", {
+                code: "GOOGLE_LOGIN_FAILED",
+                details: error,
+            });
         }
-        if (typeof state !== 'string') {
-            return (0, apiResponse_1.sendError)(res, 400, 'Invalid State', { code: 'INVALID_OAUTH_STATE' });
+        if (typeof state !== "string") {
+            return (0, apiResponse_1.sendError)(res, 400, "Invalid State", {
+                code: "INVALID_OAUTH_STATE",
+            });
         }
         if (!req.session.oauthState || req.session.oauthState !== state) {
-            return (0, apiResponse_1.sendError)(res, 400, 'Invalid State', { code: 'INVALID_OAUTH_STATE' });
+            return (0, apiResponse_1.sendError)(res, 400, "Invalid State", {
+                code: "INVALID_OAUTH_STATE",
+            });
         }
-        if (typeof code !== 'string') {
-            return (0, apiResponse_1.sendError)(res, 400, 'Missing authorization code', { code: 'MISSING_AUTHORIZATION_CODE' });
+        if (typeof code !== "string") {
+            return (0, apiResponse_1.sendError)(res, 400, "Missing authorization code", {
+                code: "MISSING_AUTHORIZATION_CODE",
+            });
         }
         delete req.session.oauthState;
         const meta = {
-            deviceInfo: req.headers['user-agent'],
+            deviceInfo: req.headers["user-agent"],
             ipAddress: req.ip,
         };
         const { user, tokens } = await (0, googleOauth_service_1.handleGoogleCallbackService)(code, meta);
-        res.cookie('temp_access', tokens.accessToken, {
+        res.cookie("refreshToken", tokens.refreshToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'none',
-            maxAge: 60 * 1000, // Expires after one minute.
+            secure: process.env.NODE_ENV === "production",
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            path: "/",
+            // Expires after one minute.
         });
-        console.log('FRONTEND_URL:', process.env.FRONTEND_URL);
-        console.log('cookies:', req.cookies);
+        console.log("FRONTEND_URL:", process.env.FRONTEND_URL);
+        console.log("cookies:", req.cookies);
         res.redirect(`${process.env.FRONTEND_URL}/auth/google/callback?accessToken=${tokens.accessToken}`);
     }
     catch (err) {
@@ -52,7 +63,7 @@ const googleLogoutController = async (req, res, next) => {
     try {
         const userId = req.user?.userId;
         if (!userId) {
-            return (0, apiResponse_1.sendError)(res, 401, 'Unauthorized', { code: 'UNAUTHORIZED' });
+            return (0, apiResponse_1.sendError)(res, 401, "Unauthorized", { code: "UNAUTHORIZED" });
         }
         const { refreshToken } = req.body;
         // Revoke Google access token
@@ -61,7 +72,7 @@ const googleLogoutController = async (req, res, next) => {
         if (refreshToken) {
             await (0, auth_service_1.logoutService)(refreshToken);
         }
-        (0, apiResponse_1.sendSuccess)(res, null, { message: 'Logout successful' });
+        (0, apiResponse_1.sendSuccess)(res, null, { message: "Logout successful" });
     }
     catch (err) {
         next(err);

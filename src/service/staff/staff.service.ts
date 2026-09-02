@@ -1,7 +1,4 @@
-import {
-  staffListCacheKey,
-  staffScheduleCacheKey,
-} from "@/cache/cacheKeys";
+import { staffListCacheKey, staffScheduleCacheKey } from "@/cache/cacheKeys";
 import {
   clearStaffListCache,
   clearStaffScheduleCache,
@@ -42,7 +39,10 @@ export const inviteStaffService = async (
       where: { shopId: shop.id, userId: existingUser.id, isActive: true },
     });
     if (alreadyStaff)
-      throw new ApiError(400, "This email already belongs to a staff member in the shop");
+      throw new ApiError(
+        400,
+        "This email already belongs to a staff member in the shop",
+      );
   }
   const rawToken = crypto.randomBytes(32).toString("hex");
   const expiresAt = getExpiresAt("1h");
@@ -89,10 +89,12 @@ export const acceptInviteService = async (rawToken: string, userId: string) => {
   if (!invite) throw new ApiError(404, "Invitation not found");
   if (invite.expiresAt < new Date())
     throw new ApiError(400, "Invitation has expired");
-  if (invite.isUsed) throw new ApiError(400, "Invitation has already been used");
+  if (invite.isUsed)
+    throw new ApiError(400, "Invitation has already been used");
   const user = await db.user.findUnique({ where: { id: userId } });
   if (!user) throw new ApiError(404, "User not found");
-  if (user.email !== invite.email) throw new ApiError(400, "Email does not match the invitation");
+  if (user.email !== invite.email)
+    throw new ApiError(400, "Email does not match the invitation");
 
   const businessHoursByDay = new Map(
     invite.shop.businessHours.map((item) => [item.dayOfWeek, item]),
@@ -134,7 +136,10 @@ export const acceptInviteService = async (rawToken: string, userId: string) => {
       clearStaffScheduleCache(invite.shopId, createdStaff.id),
     ]);
   } catch (error) {
-    console.error("[Redis] staff cache invalidation failed after invite acceptance:", error);
+    console.error(
+      "[Redis] staff cache invalidation failed after invite acceptance:",
+      error,
+    );
   }
   return {
     message: `Joined ${invite.shop.name} with role ${invite.role}`,
@@ -209,7 +214,10 @@ export const updateStaffScheduleService = async (
       clearStaffScheduleCache(shop.id, staff.id),
     ]);
   } catch (error) {
-    console.error("[Redis] staff cache invalidation failed after schedule update:", error);
+    console.error(
+      "[Redis] staff cache invalidation failed after schedule update:",
+      error,
+    );
   }
   return result;
 };
@@ -234,7 +242,10 @@ export const deleteStaffScheduleService = async (
       clearStaffScheduleCache(shop.id, staff.id),
     ]);
   } catch (error) {
-    console.error("[Redis] staff cache invalidation failed after schedule deletion:", error);
+    console.error(
+      "[Redis] staff cache invalidation failed after schedule deletion:",
+      error,
+    );
   }
   return result;
 };
@@ -271,6 +282,52 @@ export const getStaffScheduleService = async (
       offDays: staff.offDays,
     };
   });
+};
+
+export const getMyStaffScheduleByDateService = async (
+  shopSlug: string,
+  userId: string,
+  date: string,
+) => {
+  const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
+  if (!shop) throw new ApiError(404, "Shop not found");
+
+  const targetDate = dayjs.tz(date, shop.timezone);
+  if (!targetDate.isValid() || targetDate.format("YYYY-MM-DD") !== date) {
+    throw new ApiError(400, "Invalid date. Expected YYYY-MM-DD");
+  }
+
+  const staff = await db.shopStaff.findFirst({
+    where: { shopId: shop.id, userId, isActive: true },
+    select: { id: true },
+  });
+  if (!staff) throw new ApiError(404, "Staff member not found in this shop");
+
+  const weeklySchedule = await getStaffScheduleService(shopSlug, staff.id);
+  const targetDateKey = targetDate.format("YYYY-MM-DD");
+  const isOnLeave = weeklySchedule.offDays.some((offDay) => {
+    if (offDay.status !== "APPROVED") return false;
+    const offDayStart = dayjs(offDay.offDate)
+      .tz(shop.timezone)
+      .format("YYYY-MM-DD");
+    const offDayEnd = offDay.offDateEnd
+      ? dayjs(offDay.offDateEnd).tz(shop.timezone).format("YYYY-MM-DD")
+      : offDayStart;
+    return targetDateKey >= offDayStart && targetDateKey <= offDayEnd;
+  });
+
+  const schedule = weeklySchedule.schedule.find(
+    (item) => item.dayOfWeek === targetDate.day(),
+  );
+  const isWorking = Boolean(schedule && !schedule.isOff && !isOnLeave);
+
+  return {
+    date: targetDateKey,
+    dayOfWeek: targetDate.day(),
+    isWorking,
+    isOnLeave,
+    schedule: isWorking ? schedule : null,
+  };
 };
 
 export const getStaffDetailService = async (

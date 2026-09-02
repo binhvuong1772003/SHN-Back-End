@@ -14,9 +14,12 @@ import { errorHandler, notFoundHandler } from "./middleware/error.middleware";
 import metricsRouter from "./route/metrics.route";
 import { metricsMiddleware } from "./middleware/metrics.middleware";
 import { initSentry, setupSentryExpress } from "./observability/sentry";
+import { initializeAI } from "./ai/config/ai";
+import aiRouter from "./route/ai/ai.routes";
 dayjs.extend(utc);
 dayjs.extend(timezone);
 const app = express();
+initializeAI();
 initSentry();
 app.use(cookieParser());
 
@@ -62,6 +65,7 @@ app.use(
 );
 app.use("/auth", authRoutes);
 app.use("/api/shops", shopRouter);
+app.use("/api/ai", aiRouter);
 setupSentryExpress(app);
 app.use(notFoundHandler);
 app.use(errorHandler);

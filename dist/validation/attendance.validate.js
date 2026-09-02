@@ -11,15 +11,22 @@ exports.manualAttendanceSchema = zod_1.z.object({
     action: zod_1.z.enum(["CHECK_IN", "CHECK_OUT"]),
     reason: zod_1.z.string().trim().min(3).max(500),
 });
-exports.myAttendanceHistorySchema = common_validate_1.dateRangeSchema.merge(common_validate_1.paginationSchema);
-exports.shopAttendanceQuerySchema = exports.myAttendanceHistorySchema.merge(zod_1.z.object({
+exports.myAttendanceHistorySchema = common_validate_1.dateRangeSchema.safeExtend(common_validate_1.paginationSchema.shape);
+exports.shopAttendanceQuerySchema = exports.myAttendanceHistorySchema.safeExtend({
     date: common_validate_1.dateOnlySchema.optional(),
     staffId: common_validate_1.objectIdSchema.optional(),
-}));
-exports.adjustAttendanceSchema = zod_1.z.object({
+});
+exports.adjustAttendanceSchema = zod_1.z
+    .object({
     checkIn: zod_1.z.coerce.date().optional().nullable(),
     checkOut: zod_1.z.coerce.date().optional().nullable(),
-    status: zod_1.z.enum(["PRESENT", "ABSENT", "LATE", "HALF_DAY", "DAY_OFF_APPROVED"]).optional(),
+    status: zod_1.z
+        .enum(["PRESENT", "ABSENT", "LATE", "HALF_DAY", "DAY_OFF_APPROVED"])
+        .optional(),
     note: zod_1.z.string().max(500).optional().nullable(),
     reason: zod_1.z.string().trim().min(3).max(500),
-}).refine((data) => data.checkIn !== undefined || data.checkOut !== undefined || data.status !== undefined || data.note !== undefined, { message: "At least one attendance field is required for update" });
+})
+    .refine((data) => data.checkIn !== undefined ||
+    data.checkOut !== undefined ||
+    data.status !== undefined ||
+    data.note !== undefined, { message: "At least one attendance field is required for update" });

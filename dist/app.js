@@ -18,14 +18,32 @@ const error_middleware_1 = require("./middleware/error.middleware");
 const metrics_route_1 = __importDefault(require("./route/metrics.route"));
 const metrics_middleware_1 = require("./middleware/metrics.middleware");
 const sentry_1 = require("./observability/sentry");
+const ai_1 = require("./ai/config/ai");
+const ai_routes_1 = __importDefault(require("./route/ai/ai.routes"));
 dayjs_1.default.extend(utc_1.default);
 dayjs_1.default.extend(timezone_1.default);
 const app = (0, express_1.default)();
+(0, ai_1.initializeAI)();
 (0, sentry_1.initSentry)();
 app.use((0, cookie_parser_1.default)());
 app.use((0, helmet_1.default)());
+const configuredOrigins = process.env.CORS_ORIGINS ??
+    (process.env.NODE_ENV === "production"
+        ? (process.env.FRONTEND_URL ?? "")
+        : "http://localhost:5173");
+const allowedOrigins = new Set(configuredOrigins
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean));
 app.use((0, cors_1.default)({
-    origin: "http://localhost:5173",
+    origin: (origin, callback) => {
+        // Cho phép curl, Prometheus và server-to-server request
+        if (!origin || allowedOrigins.has(origin)) {
+            callback(null, true);
+            return;
+        }
+        callback(new Error("Origin is not allowed by CORS"));
+    },
     credentials: true,
 }));
 app.use((0, morgan_1.default)("dev"));
@@ -39,6 +57,7 @@ app.use((0, express_session_1.default)({
 }));
 app.use("/auth", auth_route_1.default);
 app.use("/api/shops", shop_route_1.default);
+app.use("/api/ai", ai_routes_1.default);
 (0, sentry_1.setupSentryExpress)(app);
 app.use(error_middleware_1.notFoundHandler);
 app.use(error_middleware_1.errorHandler);

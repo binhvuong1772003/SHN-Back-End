@@ -34,8 +34,15 @@ services:
     command: ["node", "dist/server.js"]
     ports:
       - "127.0.0.1:3000:3000"
+    environment:
+      NODE_ENV: production
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MCP_SERVER_URL: http://mcp-server:8080/mcp
     depends_on:
       redis:
+        condition: service_healthy
+      mcp-server:
         condition: service_healthy
     healthcheck:
       test:
@@ -50,6 +57,34 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+
+  mcp-server:
+    <<: *backend-image
+    container_name: shn-mcp-server
+    command: ["node", "dist/mcp/server.js"]
+    expose:
+      - "8080"
+    environment:
+      NODE_ENV: production
+      MCP_PORT: 8080
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          require('http').get('http://127.0.0.1:8080/health',
+          response => process.exit(response.statusCode === 200 ? 0 : 1))
+          .on('error', () => process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   email-worker:
     <<: *backend-image
