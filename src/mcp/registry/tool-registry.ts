@@ -3,8 +3,14 @@ import { canUseMcpTool } from "../policies/policy-checker";
 import type { McpContext } from "../types/mcp-context";
 import type { McpToolRegistry } from "../types/tool";
 import { getMyScheduleMcpTool } from "../tools/staff/get-my-schedule.tool";
+import { getStaffScheduleMcpTool } from "../tools/staff/get-staff-schedule.tool";
+import { findStaffMcpTool } from "../tools/staff/find-staff.tool";
 
-export const mcpToolRegistry: McpToolRegistry = [getMyScheduleMcpTool];
+export const mcpToolRegistry: McpToolRegistry = [
+  getMyScheduleMcpTool,
+  getStaffScheduleMcpTool,
+  findStaffMcpTool,
+];
 
 export const registerMcpTools = (
   server: McpServer,

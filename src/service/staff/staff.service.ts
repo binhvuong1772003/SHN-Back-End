@@ -284,26 +284,18 @@ export const getStaffScheduleService = async (
   });
 };
 
-export const getMyStaffScheduleByDateService = async (
+const getScheduleByDateForStaff = async (
   shopSlug: string,
-  userId: string,
+  shop: { id: string; timezone: string },
+  staffId: string,
   date: string,
 ) => {
-  const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
-  if (!shop) throw new ApiError(404, "Shop not found");
-
   const targetDate = dayjs.tz(date, shop.timezone);
   if (!targetDate.isValid() || targetDate.format("YYYY-MM-DD") !== date) {
     throw new ApiError(400, "Invalid date. Expected YYYY-MM-DD");
   }
 
-  const staff = await db.shopStaff.findFirst({
-    where: { shopId: shop.id, userId, isActive: true },
-    select: { id: true },
-  });
-  if (!staff) throw new ApiError(404, "Staff member not found in this shop");
-
-  const weeklySchedule = await getStaffScheduleService(shopSlug, staff.id);
+  const weeklySchedule = await getStaffScheduleService(shopSlug, staffId);
   const targetDateKey = targetDate.format("YYYY-MM-DD");
   const isOnLeave = weeklySchedule.offDays.some((offDay) => {
     if (offDay.status !== "APPROVED") return false;
@@ -324,10 +316,48 @@ export const getMyStaffScheduleByDateService = async (
   return {
     date: targetDateKey,
     dayOfWeek: targetDate.day(),
+    staffId,
     isWorking,
     isOnLeave,
     schedule: isWorking ? schedule : null,
   };
+};
+
+export const getStaffScheduleByDateService = async (
+  shopSlug: string,
+  staffId: string,
+  date: string,
+) => {
+  const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
+  if (!shop) throw new ApiError(404, "Shop not found");
+  if (!/^[0-9a-fA-F]{24}$/.test(staffId)) {
+    throw new ApiError(400, "Invalid staffId");
+  }
+
+  const staff = await db.shopStaff.findFirst({
+    where: { id: staffId, shopId: shop.id, isActive: true },
+    select: { id: true },
+  });
+  if (!staff) throw new ApiError(404, "Staff member not found in this shop");
+
+  return getScheduleByDateForStaff(shopSlug, shop, staff.id, date);
+};
+
+export const getMyStaffScheduleByDateService = async (
+  shopSlug: string,
+  userId: string,
+  date: string,
+) => {
+  const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
+  if (!shop) throw new ApiError(404, "Shop not found");
+
+  const staff = await db.shopStaff.findFirst({
+    where: { shopId: shop.id, userId, isActive: true },
+    select: { id: true },
+  });
+  if (!staff) throw new ApiError(404, "Staff member not found in this shop");
+
+  return getScheduleByDateForStaff(shopSlug, shop, staff.id, date);
 };
 
 export const getStaffDetailService = async (
