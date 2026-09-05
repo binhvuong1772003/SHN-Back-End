@@ -11,6 +11,7 @@ Rules:
 - Reply in the same language as the user.
 - Never invent business data.
 - If business data is required, use the provided tools.
+- For relative dates such as today or tomorrow, use the current date and timezone from context.
 - Keep answers concise.
 `,
     model: process.env.OPENROUTER_MODEL,

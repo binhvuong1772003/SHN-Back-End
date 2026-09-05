@@ -1,5 +1,5 @@
 import jwt, { type JwtPayload } from "jsonwebtoken";
-import type { McpContext } from "../types/mcp-context";
+import { mcpContextSchema, type McpContext } from "../types/mcp-context";
 
 const MCP_CONTEXT_AUDIENCE = "shn-mcp";
 
@@ -24,22 +24,15 @@ export const verifyMcpContextToken = (token: string): McpContext => {
     throw new Error("Invalid MCP context token");
   }
 
-  const claims = payload as JwtPayload & Partial<McpContext>;
-  if (
-    typeof claims.userId !== "string" ||
-    typeof claims.shopSlug !== "string" ||
-    typeof claims.role !== "string" ||
-    !Array.isArray(claims.permissions) ||
-    !claims.permissions.every((permission) => typeof permission === "string")
-  ) {
-    throw new Error("Invalid MCP context claims");
-  }
-
-  return {
+  const claims = payload as JwtPayload;
+  return mcpContextSchema.parse({
     userId: claims.userId,
+    shopId: claims.shopId,
     shopSlug: claims.shopSlug,
     role: claims.role,
     permissions: claims.permissions,
-    requestId: typeof claims.requestId === "string" ? claims.requestId : undefined,
-  };
+    currentDate: claims.currentDate,
+    requestId: claims.requestId,
+    timezone: claims.timezone,
+  });
 };

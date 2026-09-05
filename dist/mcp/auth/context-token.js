@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.verifyMcpContextToken = exports.createMcpContextToken = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const mcp_context_1 = require("../types/mcp-context");
 const MCP_CONTEXT_AUDIENCE = "shn-mcp";
 const getMcpSecret = () => {
     const secret = process.env.MCP_INTERNAL_SECRET;
@@ -25,19 +26,15 @@ const verifyMcpContextToken = (token) => {
         throw new Error("Invalid MCP context token");
     }
     const claims = payload;
-    if (typeof claims.userId !== "string" ||
-        typeof claims.shopSlug !== "string" ||
-        typeof claims.role !== "string" ||
-        !Array.isArray(claims.permissions) ||
-        !claims.permissions.every((permission) => typeof permission === "string")) {
-        throw new Error("Invalid MCP context claims");
-    }
-    return {
+    return mcp_context_1.mcpContextSchema.parse({
         userId: claims.userId,
+        shopId: claims.shopId,
         shopSlug: claims.shopSlug,
         role: claims.role,
         permissions: claims.permissions,
-        requestId: typeof claims.requestId === "string" ? claims.requestId : undefined,
-    };
+        currentDate: claims.currentDate,
+        requestId: claims.requestId,
+        timezone: claims.timezone,
+    });
 };
 exports.verifyMcpContextToken = verifyMcpContextToken;

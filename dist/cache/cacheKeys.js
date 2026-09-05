@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.serviceListCachePattern = exports.staffListCachePattern = exports.staffScheduleCacheKey = exports.serviceListCacheKey = exports.staffListCacheKey = void 0;
+exports.serviceListCachePattern = exports.aiConversationMessagesCacheKey = exports.staffListCachePattern = exports.staffScheduleCacheKey = exports.serviceListCacheKey = exports.staffListCacheKey = void 0;
 const cacheConfig_1 = require("../cache/cacheConfig");
 const staffListCacheKey = (shopSlug, query, dateKey) => {
     const normalizedQuery = {
@@ -31,5 +31,7 @@ const staffScheduleCacheKey = (shopId, staffId) => (0, cacheConfig_1.redisKey)("
 exports.staffScheduleCacheKey = staffScheduleCacheKey;
 const staffListCachePattern = (shopSlug) => (0, cacheConfig_1.redisKeyPattern)("shop", shopSlug, "staff", "list");
 exports.staffListCachePattern = staffListCachePattern;
+const aiConversationMessagesCacheKey = (shopId, userId, conversationId) => (0, cacheConfig_1.redisKey)("ai", "conversation", shopId, userId, conversationId, "messages");
+exports.aiConversationMessagesCacheKey = aiConversationMessagesCacheKey;
 const serviceListCachePattern = (shopSlug) => (0, cacheConfig_1.redisKeyPattern)("shop", shopSlug, "service", "list");
 exports.serviceListCachePattern = serviceListCachePattern;

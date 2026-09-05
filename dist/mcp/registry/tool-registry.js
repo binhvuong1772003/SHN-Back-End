@@ -11,7 +11,10 @@ const registerMcpTools = (server, context) => {
         server.registerTool(definition.name, {
             description: definition.description,
             inputSchema: definition.inputSchema,
-            annotations: { readOnlyHint: true },
+            annotations: {
+                readOnlyHint: definition.mode === "read",
+                destructiveHint: definition.mode === "write",
+            },
         }, async (input) => {
             try {
                 const output = await definition.execute(input, context);

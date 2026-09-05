@@ -7,11 +7,12 @@ const inputSchema = {
   date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must use YYYY-MM-DD format")
-    .describe("Date formatted as YYYY-MM-DD"),
+    .optional()
+    .describe("Date formatted as YYYY-MM-DD. Omit for today."),
 };
 
 type GetMyScheduleInput = {
-  date: string;
+  date?: string;
 };
 
 type GetMyScheduleOutput = Awaited<
@@ -19,14 +20,19 @@ type GetMyScheduleOutput = Awaited<
 >;
 
 export const getMyScheduleMcpTool: McpToolDefinition<
-  typeof inputSchema,
+  GetMyScheduleInput,
   GetMyScheduleOutput
 > = {
   name: "get_my_schedule",
   description:
-    "Get the authenticated staff member's work schedule for a specific date.",
+    "Get the authenticated staff member's work schedule. Omit date for today; provide YYYY-MM-DD for another date.",
   access: "SELF_READ",
+  mode: "read",
   inputSchema,
   execute: async (input: GetMyScheduleInput, context: McpContext) =>
-    getMyStaffScheduleByDateService(context.shopSlug, context.userId, input.date),
+    getMyStaffScheduleByDateService(
+      context.shopSlug,
+      context.userId,
+      input.date ?? context.currentDate,
+    ),
 };

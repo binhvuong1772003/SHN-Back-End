@@ -143,6 +143,17 @@
     REJECTED
   }
 
+  enum AiConversationStatus {
+    ACTIVE
+    ARCHIVED
+  }
+
+  enum AiMessageRole {
+    USER
+    ASSISTANT
+    TOOL
+  }
+
   // ============================================================
   // USER
   // ============================================================
@@ -172,6 +183,7 @@
     notifications       Notification[]
     reviews             Review[]
     payrolls            Payroll[]
+    aiConversations     AiConversation[]
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
@@ -301,6 +313,7 @@
     salaryConfigs     StaffSalaryConfig[]
     payrolls          Payroll[]
     reviews           Review[]
+    aiConversations   AiConversation[]
 businessHours ShopBusinessHour[]
 
     createdAt DateTime @default(now())
@@ -918,6 +931,49 @@ businessHours ShopBusinessHour[]
     reason      String
     referenceId String?
     createdAt   DateTime
+  }
+
+  model AiConversation {
+    id            String               @id @default(auto()) @map("_id") @db.ObjectId
+    userId        String               @db.ObjectId
+    shopId        String               @db.ObjectId
+    title         String?
+    summary       String?
+    status        AiConversationStatus @default(ACTIVE)
+    lastMessageAt DateTime             @default(now())
+    archivedAt    DateTime?
+
+    user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+    shop     Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+    messages AiMessage[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([userId, shopId, updatedAt])
+    @@index([shopId, userId, updatedAt])
+    @@map("ai_conversations")
+  }
+
+  model AiMessage {
+    id             String        @id @default(auto()) @map("_id") @db.ObjectId
+    conversationId String        @db.ObjectId
+    role           AiMessageRole
+    content        String
+    toolName       String?
+    toolCallId     String?
+    model          String?
+    inputTokens    Int?
+    outputTokens   Int?
+    metadata       Json?
+
+    conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+    createdAt DateTime @default(now())
+
+    @@index([conversationId, createdAt])
+    @@index([conversationId, role, createdAt])
+    @@map("ai_messages")
   }
 
   model AuditLog {

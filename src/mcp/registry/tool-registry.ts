@@ -18,7 +18,10 @@ export const registerMcpTools = (
       {
         description: definition.description,
         inputSchema: definition.inputSchema,
-        annotations: { readOnlyHint: true },
+        annotations: {
+          readOnlyHint: definition.mode === "read",
+          destructiveHint: definition.mode === "write",
+        },
       },
       async (input: Record<string, unknown>) => {
         try {

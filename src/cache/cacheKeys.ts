@@ -17,10 +17,19 @@ export const staffListCacheKey = (
     date: dateKey ?? "",
   };
 
-  return redisKey("shop", shopSlug, "staff", "list", JSON.stringify(normalizedQuery));
+  return redisKey(
+    "shop",
+    shopSlug,
+    "staff",
+    "list",
+    JSON.stringify(normalizedQuery),
+  );
 };
 
-export const serviceListCacheKey = (shopSlug: string, query: ServiceListQuery) => {
+export const serviceListCacheKey = (
+  shopSlug: string,
+  query: ServiceListQuery,
+) => {
   const normalizedQuery = {
     page: query.page ?? 1,
     limit: query.limit ?? 5,
@@ -29,7 +38,13 @@ export const serviceListCacheKey = (shopSlug: string, query: ServiceListQuery) =
     category: query.category ?? "",
     sort: query.sort ?? "RECENT",
   };
-  return redisKey("shop", shopSlug, "service", "list", JSON.stringify(normalizedQuery));
+  return redisKey(
+    "shop",
+    shopSlug,
+    "service",
+    "list",
+    JSON.stringify(normalizedQuery),
+  );
 };
 
 export const staffScheduleCacheKey = (shopId: string, staffId: string) =>
@@ -37,6 +52,12 @@ export const staffScheduleCacheKey = (shopId: string, staffId: string) =>
 
 export const staffListCachePattern = (shopSlug: string) =>
   redisKeyPattern("shop", shopSlug, "staff", "list");
+
+export const aiConversationMessagesCacheKey = (
+  shopId: string,
+  userId: string,
+  conversationId: string,
+) => redisKey("ai", "conversation", shopId, userId, conversationId, "messages");
 
 export const serviceListCachePattern = (shopSlug: string) =>
   redisKeyPattern("shop", shopSlug, "service", "list");
