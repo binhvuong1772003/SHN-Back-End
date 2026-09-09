@@ -22,6 +22,22 @@ import { upload } from "@/middleware/upload.middleware";
 import { validateMultipartBody } from "@/middleware/validateMultipartBody.middleware";
 import { uploadServiceImage } from "@/middleware/uploadImageToCloudinary.middleware";
 import { idParamSchema } from "@/validation/common.validate";
+import type { NextFunction, Request, Response } from "express";
+
+// Service edits may include a replacement image. Keep the existing JSON
+// status-toggle contract while accepting the multipart payload used by the
+// editor form.
+const validateServiceUpdateBody = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  if (req.is("multipart/form-data")) {
+    return validateMultipartBody(updateServiceSchema)(req, res, next);
+  }
+
+  return validate({ body: updateServiceSchema })(req, res, next);
+};
 
 const serviceRouter = Router({ mergeParams: true });
 serviceRouter.use(requireShopAccess());
@@ -43,7 +59,10 @@ serviceRouter.get("/:serviceId", validate({ params: idParamSchema("serviceId") }
 serviceRouter.patch(
   "/:serviceId",
   requireShopAccess("OWNER"),
-  validate({ params: idParamSchema("serviceId"), body: updateServiceSchema }),
+  validate({ params: idParamSchema("serviceId") }),
+  upload.single("image"),
+  uploadServiceImage,
+  validateServiceUpdateBody,
   updateServiceController,
 );
 

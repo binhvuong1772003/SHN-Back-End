@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const marketplace_controller_1 = require("../controller/marketplace/marketplace.controller");
+const validation_middleware_1 = require("../middleware/validation.middleware");
+const common_validate_1 = require("../validation/common.validate");
+const marketplaceRouter = (0, express_1.Router)();
+marketplaceRouter.get("/shops", marketplace_controller_1.getPublicMarketplaceShopsController);
+marketplaceRouter.get("/shops/:shopSlug", marketplace_controller_1.getPublicShopController);
+marketplaceRouter.get("/shops/:shopSlug/availability", (0, validation_middleware_1.validate)({ query: common_validate_1.calendarSlotsQuerySchema }), marketplace_controller_1.getPublicShopAvailabilityController);
+marketplaceRouter.get("/shops/:shopSlug/reviews", (0, validation_middleware_1.validate)({ query: common_validate_1.paginationSchema }), marketplace_controller_1.getPublicShopReviewsController);
+exports.default = marketplaceRouter;

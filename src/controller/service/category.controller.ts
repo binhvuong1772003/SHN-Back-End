@@ -1,16 +1,17 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from "express";
 import {
   createCategory,
   deleteCategory,
   getCategories,
   getCategoryById,
   updateCategory,
-} from '@/service/service/category.service';
-import { sendSuccess } from '@/utils/apiResponse';
+} from "@/service/service/category.service";
+import type { CategoryListQuery } from "@/service/service/category.service";
+import { sendSuccess } from "@/utils/apiResponse";
 export const createCategoryController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const data = req.body;
@@ -24,7 +25,7 @@ export const createCategoryController = async (
 export const deleteCategoryController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const id = req.params.id as string;
@@ -37,12 +38,24 @@ export const deleteCategoryController = async (
 export const getCategoriesController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const shopSlug = req.params.shopSlug as string;
-    const result = await getCategories(shopSlug);
-    sendSuccess(res, result);
+    const result = await getCategories(
+      shopSlug,
+      req.query as unknown as CategoryListQuery,
+    );
+    sendSuccess(res, result.items, {
+      meta: {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+        hasNext: result.page < result.totalPages,
+        hasPrev: result.page > 1,
+      },
+    });
   } catch (error) {
     next(error);
   }
@@ -50,7 +63,7 @@ export const getCategoriesController = async (
 export const getCategoryByIdController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const id = req.params.id as string;
@@ -63,7 +76,7 @@ export const getCategoryByIdController = async (
 export const updateCategoryController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const id = req.params.id as string;

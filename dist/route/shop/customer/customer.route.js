@@ -9,4 +9,6 @@ const common_validate_1 = require("../../../validation/common.validate");
 const customerRouter = (0, express_1.Router)({ mergeParams: true });
 customerRouter.use(authenticate_middleware_1.authenticate, (0, shop_middleware_1.requireShopAccess)("STAFF"));
 customerRouter.get("/top", (0, validation_middleware_1.validate)({ query: common_validate_1.topCustomerQuerySchema }), customer_controller_1.getTopCustomerController);
+customerRouter.get("/", (0, shop_middleware_1.requireShopAccess)("MANAGER"), (0, validation_middleware_1.validate)({ query: common_validate_1.customerListQuerySchema }), customer_controller_1.getCustomerListController);
+customerRouter.get("/:customerId", (0, shop_middleware_1.requireShopAccess)("MANAGER"), (0, validation_middleware_1.validate)({ params: (0, common_validate_1.idParamSchema)("customerId") }), customer_controller_1.getCustomerDetailController);
 exports.default = customerRouter;

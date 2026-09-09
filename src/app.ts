@@ -16,6 +16,7 @@ import { metricsMiddleware } from "./middleware/metrics.middleware";
 import { initSentry, setupSentryExpress } from "./observability/sentry";
 import { initializeAI } from "./ai/config/ai";
 import aiRouter from "./route/ai/ai.routes";
+import marketplaceRouter from "./route/marketplace.route";
 dayjs.extend(utc);
 dayjs.extend(timezone);
 const app = express();
@@ -65,6 +66,7 @@ app.use(
 );
 app.use("/auth", authRoutes);
 app.use("/api/shops", shopRouter);
+app.use("/api/marketplace", marketplaceRouter);
 app.use("/api/ai", aiRouter);
 setupSentryExpress(app);
 app.use(notFoundHandler);

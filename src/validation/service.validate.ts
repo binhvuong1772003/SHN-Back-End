@@ -6,6 +6,15 @@ export const createCategorySchema = z.object({
   imageUrl: z.string().url("Invalid URL").optional(),
 });
 export const updateCategorySchema = createCategorySchema.partial();
+export const categoryListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).max(10_000).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  search: z.string().trim().max(100).optional(),
+  status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
+  sort: z
+    .enum(["RECENT", "NAME_ASC", "NAME_DESC", "ORDER_ASC"])
+    .default("ORDER_ASC"),
+});
 // ============================================================
 // OPTION VALUE
 // ============================================================

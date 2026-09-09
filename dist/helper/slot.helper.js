@@ -4,22 +4,12 @@ exports.checkSlotAvailability = exports.filterAvailableSlots = exports.isStaffAv
 // helpers/slot.helper.ts
 const prisma_1 = require("../db/prisma");
 const getBusyAppointments = async (shopId, date, staffId) => {
-    // Convert ShopStaff.id to userId if staffId provided (Appointment.staffId references User.id)
-    let userId = undefined;
-    if (staffId) {
-        const shopStaff = await prisma_1.db.shopStaff.findFirst({
-            where: { id: staffId, shopId, isActive: true },
-        });
-        if (shopStaff) {
-            userId = shopStaff.userId;
-        }
-    }
     return prisma_1.db.appointment.findMany({
         where: {
             shopId,
             date,
             status: { notIn: ["CANCELLED", "NO_SHOW"] },
-            ...(userId && { staffId: userId }),
+            ...(staffId ? { staffId } : {}),
         },
         select: { startTime: true, endTime: true, staffId: true },
     });
@@ -108,7 +98,10 @@ const isStaffAvailable = async (staffId, shopId, dayOfWeek, date) => {
         where: { shopStaffId: staff.id, dayOfWeek },
     });
     if (!schedule || schedule.isOff) {
-        return { available: false, reason: "Staff is not scheduled to work on this day" };
+        return {
+            available: false,
+            reason: "Staff is not scheduled to work on this day",
+        };
     }
     // Check approved leave days.
     const offDay = await prisma_1.db.staffOffDay.findFirst({
@@ -132,22 +125,12 @@ const filterAvailableSlots = (allSlots, busyAppointments, durationMin) => {
 };
 exports.filterAvailableSlots = filterAvailableSlots;
 const checkSlotAvailability = async (shopId, date, startTime, endTime, staffId) => {
-    // Convert ShopStaff.id to userId if staffId provided (Appointment.staffId references User.id)
-    let userId = undefined;
-    if (staffId) {
-        const shopStaff = await prisma_1.db.shopStaff.findFirst({
-            where: { id: staffId, shopId, isActive: true },
-        });
-        if (shopStaff) {
-            userId = shopStaff.userId;
-        }
-    }
     const conflict = await prisma_1.db.appointment.findFirst({
         where: {
             shopId,
             date,
             status: { notIn: ["CANCELLED", "NO_SHOW"] },
-            ...(userId && { staffId: userId }),
+            ...(staffId ? { staffId } : {}),
             AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
         },
     });

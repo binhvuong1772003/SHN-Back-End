@@ -1,4 +1,9 @@
-import type { PaymentMethod, PaymentStatus, Prisma, ShopRole } from "@prisma/client";
+import type {
+  PaymentMethod,
+  PaymentStatus,
+  Prisma,
+  ShopRole,
+} from "@prisma/client";
 import { db } from "@/db/prisma";
 import { ApiError } from "@/utils/ApiError";
 import type {
@@ -29,7 +34,14 @@ const paymentDetailInclude = {
         select: { id: true, name: true, email: true, avatarUrl: true },
       },
       staff: {
-        select: { id: true, name: true, email: true, avatarUrl: true },
+        select: {
+          id: true,
+          nickname: true,
+          avatarUrl: true,
+          user: {
+            select: { id: true, name: true, email: true, avatarUrl: true },
+          },
+        },
       },
       services: {
         select: {
@@ -70,13 +82,19 @@ const assertPaymentManager = (role: ShopRole | undefined) => {
   }
 };
 
-const paymentStatusFromAmount = (paidAmount: number, amount: number): PaymentStatus => {
+const paymentStatusFromAmount = (
+  paidAmount: number,
+  amount: number,
+): PaymentStatus => {
   if (paidAmount <= 0) return "PENDING";
   if (paidAmount >= amount) return "PAID";
   return "PARTIAL";
 };
 
-const getAppointmentForPayment = async (shopSlug: string, appointmentId: string) => {
+const getAppointmentForPayment = async (
+  shopSlug: string,
+  appointmentId: string,
+) => {
   const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
   if (!shop) throw new ApiError(404, "Shop not found");
 
@@ -99,9 +117,14 @@ export const createPayment = async (
   input: CreatePaymentInput,
 ) => {
   if (!actorUserId) throw new ApiError(401, "Unauthorized");
-  const { shop, appointment } = await getAppointmentForPayment(shopSlug, appointmentId);
+  const { shop, appointment } = await getAppointmentForPayment(
+    shopSlug,
+    appointmentId,
+  );
 
-  const existing = await db.payment.findUnique({ where: { appointmentId: appointment.id } });
+  const existing = await db.payment.findUnique({
+    where: { appointmentId: appointment.id },
+  });
   if (existing) return { payment: existing, created: false };
 
   const payment = await db.$transaction(async (tx) => {
@@ -155,29 +178,51 @@ export const getPaymentList = async (
 
   const search = query.search?.trim();
   const idSearch = search && /^[0-9a-fA-F]{24}$/.test(search);
-  const createdAt = query.from || query.to
-    ? {
-        ...(query.from
-          ? { gte: dayjs.tz(query.from, shop.timezone).startOf("day").toDate() }
-          : {}),
-        ...(query.to
-          ? { lte: dayjs.tz(query.to, shop.timezone).endOf("day").toDate() }
-          : {}),
-      }
-    : undefined;
+  const createdAt =
+    query.from || query.to
+      ? {
+          ...(query.from
+            ? {
+                gte: dayjs
+                  .tz(query.from, shop.timezone)
+                  .startOf("day")
+                  .toDate(),
+              }
+            : {}),
+          ...(query.to
+            ? { lte: dayjs.tz(query.to, shop.timezone).endOf("day").toDate() }
+            : {}),
+        }
+      : undefined;
 
   const baseWhere: Prisma.PaymentWhereInput = {
     AND: [
       { appointment: { is: { shopId: shop.id } } },
       ...(search
-        ? [{
-            OR: [
-              { transactionId: { contains: search } },
-              { appointment: { is: { customer: { is: { name: { contains: search } } } } } },
-              { appointment: { is: { staff: { is: { name: { contains: search } } } } } },
-              ...(idSearch ? [{ id: search }, { appointmentId: search }] : []),
-            ],
-          } satisfies Prisma.PaymentWhereInput]
+        ? [
+            {
+              OR: [
+                { transactionId: { contains: search } },
+                {
+                  appointment: {
+                    is: { customer: { is: { name: { contains: search } } } },
+                  },
+                },
+                {
+                  appointment: {
+                    is: {
+                      staff: {
+                        is: { user: { is: { name: { contains: search } } } },
+                      },
+                    },
+                  },
+                },
+                ...(idSearch
+                  ? [{ id: search }, { appointmentId: search }]
+                  : []),
+              ],
+            } satisfies Prisma.PaymentWhereInput,
+          ]
         : []),
     ],
     ...(createdAt ? { createdAt } : {}),
@@ -216,7 +261,8 @@ export const getPaymentList = async (
     PAID: 0,
     REFUNDED: 0,
   };
-  for (const group of statusGroups) statusCounts[group.status] = group._count._all;
+  for (const group of statusGroups)
+    statusCounts[group.status] = group._count._all;
 
   return {
     items,
@@ -256,7 +302,10 @@ export const confirmPayment = async (
 ) => {
   assertPaymentManager(actorRole);
   if (!actorUserId) throw new ApiError(401, "Unauthorized");
-  const { shop, appointment } = await getAppointmentForPayment(shopSlug, appointmentId);
+  const { shop, appointment } = await getAppointmentForPayment(
+    shopSlug,
+    appointmentId,
+  );
 
   return db.$transaction(async (tx) => {
     const payment = await tx.payment.findUnique({

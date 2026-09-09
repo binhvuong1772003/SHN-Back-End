@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.responseOffDaySchema = exports.requestOffDaySchema = exports.updateStaffSchedule = exports.updatedStaffInfo = exports.inviteStaffSchema = void 0;
+exports.responseOffDaySchema = exports.requestOffDaySchema = exports.updateStaffServices = exports.updateStaffSchedule = exports.updatedStaffInfo = exports.inviteStaffSchema = void 0;
 const zod_1 = require("zod");
 exports.inviteStaffSchema = zod_1.z.object({
     invitedEmail: zod_1.z.string().email("Invalid email address"),
@@ -28,6 +28,9 @@ exports.updateStaffSchedule = zod_1.z.array(zod_1.z.object({
         .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid closing time (HH:mm)"),
     isOff: zod_1.z.boolean().default(false),
 }));
+exports.updateStaffServices = zod_1.z.object({
+    serviceIds: zod_1.z.array(zod_1.z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid service id")).max(100),
+});
 exports.requestOffDaySchema = zod_1.z
     .object({
     offDate: zod_1.z.coerce.date(),

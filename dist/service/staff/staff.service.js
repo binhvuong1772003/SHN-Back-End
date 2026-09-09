@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getStaffListByShopService = exports.getStaffDetailService = exports.getMyStaffScheduleByDateService = exports.getStaffScheduleService = exports.deleteStaffScheduleService = exports.updateStaffScheduleService = exports.updateStaffInfoService = exports.acceptInviteService = exports.inviteStaffService = void 0;
+exports.getStaffListByShopService = exports.getStaffDetailService = exports.getMyStaffScheduleByDateService = exports.getStaffScheduleByDateService = exports.getStaffScheduleService = exports.deleteStaffScheduleService = exports.updateStaffScheduleService = exports.updateStaffInfoService = exports.acceptInviteService = exports.inviteStaffService = void 0;
 const cacheKeys_1 = require("../../cache/cacheKeys");
 const cacheInvalidation_1 = require("../../cache/cacheInvalidation");
 const cacheAside_1 = require("../../cache/cacheAside");
@@ -243,21 +243,12 @@ const getStaffScheduleService = async (shopSlug, staffId) => {
     });
 };
 exports.getStaffScheduleService = getStaffScheduleService;
-const getMyStaffScheduleByDateService = async (shopSlug, userId, date) => {
-    const shop = await prisma_1.db.shop.findUnique({ where: { slug: shopSlug } });
-    if (!shop)
-        throw new ApiError_1.ApiError(404, "Shop not found");
+const getScheduleByDateForStaff = async (shopSlug, shop, staffId, date) => {
     const targetDate = dayjs_1.default.tz(date, shop.timezone);
     if (!targetDate.isValid() || targetDate.format("YYYY-MM-DD") !== date) {
         throw new ApiError_1.ApiError(400, "Invalid date. Expected YYYY-MM-DD");
     }
-    const staff = await prisma_1.db.shopStaff.findFirst({
-        where: { shopId: shop.id, userId, isActive: true },
-        select: { id: true },
-    });
-    if (!staff)
-        throw new ApiError_1.ApiError(404, "Staff member not found in this shop");
-    const weeklySchedule = await (0, exports.getStaffScheduleService)(shopSlug, staff.id);
+    const weeklySchedule = await (0, exports.getStaffScheduleService)(shopSlug, staffId);
     const targetDateKey = targetDate.format("YYYY-MM-DD");
     const isOnLeave = weeklySchedule.offDays.some((offDay) => {
         if (offDay.status !== "APPROVED")
@@ -275,10 +266,39 @@ const getMyStaffScheduleByDateService = async (shopSlug, userId, date) => {
     return {
         date: targetDateKey,
         dayOfWeek: targetDate.day(),
+        staffId,
         isWorking,
         isOnLeave,
         schedule: isWorking ? schedule : null,
     };
+};
+const getStaffScheduleByDateService = async (shopSlug, staffId, date) => {
+    const shop = await prisma_1.db.shop.findUnique({ where: { slug: shopSlug } });
+    if (!shop)
+        throw new ApiError_1.ApiError(404, "Shop not found");
+    if (!/^[0-9a-fA-F]{24}$/.test(staffId)) {
+        throw new ApiError_1.ApiError(400, "Invalid staffId");
+    }
+    const staff = await prisma_1.db.shopStaff.findFirst({
+        where: { id: staffId, shopId: shop.id, isActive: true },
+        select: { id: true },
+    });
+    if (!staff)
+        throw new ApiError_1.ApiError(404, "Staff member not found in this shop");
+    return getScheduleByDateForStaff(shopSlug, shop, staff.id, date);
+};
+exports.getStaffScheduleByDateService = getStaffScheduleByDateService;
+const getMyStaffScheduleByDateService = async (shopSlug, userId, date) => {
+    const shop = await prisma_1.db.shop.findUnique({ where: { slug: shopSlug } });
+    if (!shop)
+        throw new ApiError_1.ApiError(404, "Shop not found");
+    const staff = await prisma_1.db.shopStaff.findFirst({
+        where: { shopId: shop.id, userId, isActive: true },
+        select: { id: true },
+    });
+    if (!staff)
+        throw new ApiError_1.ApiError(404, "Staff member not found in this shop");
+    return getScheduleByDateForStaff(shopSlug, shop, staff.id, date);
 };
 exports.getMyStaffScheduleByDateService = getMyStaffScheduleByDateService;
 const getStaffDetailService = async (shopSlug, staffId) => {

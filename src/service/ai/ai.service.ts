@@ -14,8 +14,8 @@ export const askAIService = async (
 
   try {
     const result = await run(
-      createAdminAgent(mcpClient),
-      formatConversationInput(history, message),
+      createAdminAgent(mcpClient, context),
+      formatConversationInput(history, message, context),
       { context },
     );
 
@@ -28,14 +28,22 @@ export const askAIService = async (
 const formatConversationInput = (
   history: AiContextMessage[],
   message: string,
+  context: SalonAgentContext,
 ) => {
-  if (history.length === 0) return message;
+  const runtimeContext = [
+    "Authoritative runtime context (always use this over conversation history):",
+    `currentDate=${context.currentDate}`,
+    `timezone=${context.timezone}`,
+  ].join("\n");
+  if (history.length === 0) return `${runtimeContext}\n\n${message}`;
 
   const historyText = history
     .map((item) => `${item.role}: ${item.content}`)
     .join("\n");
 
   return [
+    runtimeContext,
+    "",
     "Conversation history:",
     historyText,
     "",

@@ -37,6 +37,14 @@ export const topCustomerQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(5),
 });
 
+export const customerListQuerySchema = paginationSchema.extend({
+  search: z.string().trim().max(100).optional(),
+  sort: z.enum(["SPEND_DESC", "VISITS_DESC", "RECENT_VISIT", "LONGEST_INACTIVE", "NEWEST"]).default("SPEND_DESC"),
+  retention: z.enum(["ALL", "NEW", "RETURNING"]).default("ALL"),
+  hasUpcomingAppointment: z.enum(["true", "false"]).transform((value) => value === "true").optional(),
+  lastVisitBefore: dateOnlySchema.optional(),
+});
+
 export const calendarSlotsQuerySchema = z.object({
   date: dateOnlySchema,
   durationMin: z.coerce.number().int().min(15).max(1440),

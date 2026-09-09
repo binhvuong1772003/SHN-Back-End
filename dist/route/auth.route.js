@@ -6,6 +6,7 @@ const auth_controller_1 = require("../controller/auth.controller");
 const authenticate_middleware_1 = require("../middleware/authenticate.middleware");
 const validation_middleware_1 = require("../middleware/validation.middleware");
 const auth_validate_1 = require("../validation/auth.validate");
+const upload_middleware_1 = require("../middleware/upload.middleware");
 // import { authenticate } from '@/middleware/auth.middleware';
 const router = (0, express_1.Router)();
 router.get('/google', googleOauth_controller_1.googleLoginController);
@@ -14,6 +15,8 @@ router.post('/register', (0, validation_middleware_1.validate)(auth_validate_1.r
 router.post('/login', (0, validation_middleware_1.validate)(auth_validate_1.loginSchema), auth_controller_1.loginWithEmailController);
 router.post('/logout', auth_controller_1.logoutController);
 router.get('/me', authenticate_middleware_1.authenticate, auth_controller_1.getMeController);
+router.patch('/me', authenticate_middleware_1.authenticate, (0, validation_middleware_1.validate)(auth_validate_1.updateProfileSchema), auth_controller_1.updateProfileController);
+router.patch('/me/avatar', authenticate_middleware_1.authenticate, upload_middleware_1.upload.single('avatar'), auth_controller_1.updateProfileAvatarController);
 router.post('/token/refresh', auth_controller_1.refresthTokenController);
 router.post('/email/verify', (0, validation_middleware_1.validate)(auth_validate_1.emailVerificationQuerySchema), auth_controller_1.verifyEmailController);
 router.post('/email/verification/resend', (0, validation_middleware_1.validate)(auth_validate_1.resendVerificationSchema), auth_controller_1.reSendEmailVerifyController);

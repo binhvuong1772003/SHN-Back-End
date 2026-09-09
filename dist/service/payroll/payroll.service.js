@@ -110,7 +110,7 @@ const upsertServiceCommissionService = async (shopSlug, staffId, serviceId, inpu
 exports.upsertServiceCommissionService = upsertServiceCommissionService;
 const calculateDraftForStaff = async (shop, staff, periodStart, periodEnd, queryEnd) => {
     const config = staff.salaryConfig;
-    const [attendances, appointments, commissions, positiveReviews, noShows, schedules] = await Promise.all([
+    const [attendances, appointments, commissions, positiveReviews, noShows, schedules,] = await Promise.all([
         prisma_1.db.attendance.findMany({
             where: {
                 shopStaffId: staff.id,
@@ -120,7 +120,7 @@ const calculateDraftForStaff = async (shop, staff, periodStart, periodEnd, query
         prisma_1.db.appointment.findMany({
             where: {
                 shopId: shop.id,
-                staffId: staff.userId,
+                staffId: staff.id,
                 date: { gte: periodStart, lte: queryEnd },
                 status: "COMPLETED",
                 payment: { is: { status: "PAID" } },
@@ -139,7 +139,7 @@ const calculateDraftForStaff = async (shop, staff, periodStart, periodEnd, query
         prisma_1.db.appointment.count({
             where: {
                 shopId: shop.id,
-                staffId: staff.userId,
+                staffId: staff.id,
                 status: "NO_SHOW",
                 date: { gte: periodStart, lte: queryEnd },
             },
@@ -296,11 +296,17 @@ const generateDraftPayrollsService = async (shopSlug, input, actorUserId, ipAddr
     const skipped = [];
     for (const staff of staffMembers) {
         if (!staff.salaryConfig) {
-            skipped.push({ staffId: staff.id, reason: "Salary configuration is missing" });
+            skipped.push({
+                staffId: staff.id,
+                reason: "Salary configuration is missing",
+            });
             continue;
         }
         if (staff.salaryConfig.effectiveFrom > queryEnd) {
-            skipped.push({ staffId: staff.id, reason: "Salary configuration is not yet effective" });
+            skipped.push({
+                staffId: staff.id,
+                reason: "Salary configuration is not yet effective",
+            });
             continue;
         }
         const existing = await prisma_1.db.payroll.findUnique({
@@ -314,7 +320,10 @@ const generateDraftPayrollsService = async (shopSlug, input, actorUserId, ipAddr
             },
         });
         if (existing) {
-            skipped.push({ staffId: staff.id, reason: "Payroll already exists for this period" });
+            skipped.push({
+                staffId: staff.id,
+                reason: "Payroll already exists for this period",
+            });
             continue;
         }
         const data = await calculateDraftForStaff(shop, staff, periodStart, periodEnd, queryEnd);

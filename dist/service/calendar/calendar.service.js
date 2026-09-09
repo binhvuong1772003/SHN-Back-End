@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getMonthAvailability = exports.getAppointmentsWithSlots = exports.getTimeSlots = exports.getAllSlots = exports.getAvailableSlots = exports.validateBookingSlot = void 0;
+exports.getMonthAvailability = exports.getAppointmentsWithSlots = exports.getTimeSlots = exports.getAllSlots = exports.getAvailableSlotsForStaffUser = exports.getAvailableSlots = exports.validateBookingSlot = void 0;
 const prisma_1 = require("../../db/prisma");
 const ApiError_1 = require("../../utils/ApiError");
 const dayjs_1 = __importDefault(require("dayjs"));
@@ -132,6 +132,27 @@ const getAvailableSlots = async (input) => {
     };
 };
 exports.getAvailableSlots = getAvailableSlots;
+const getAvailableSlotsForStaffUser = async (input) => {
+    const shop = await prisma_1.db.shop.findUnique({
+        where: { slug: input.shopSlug },
+        select: { id: true },
+    });
+    if (!shop)
+        throw new ApiError_1.ApiError(404, "Shop not found");
+    const staff = await prisma_1.db.shopStaff.findFirst({
+        where: { shopId: shop.id, userId: input.userId, isActive: true },
+        select: { id: true },
+    });
+    if (!staff)
+        throw new ApiError_1.ApiError(404, "Staff member not found in this shop");
+    return (0, exports.getAvailableSlots)({
+        shopSlug: input.shopSlug,
+        date: input.date,
+        durationMin: input.durationMin,
+        staffId: staff.id,
+    });
+};
+exports.getAvailableSlotsForStaffUser = getAvailableSlotsForStaffUser;
 const getAllSlots = async (shopSlug, date, durationMin) => {
     const shop = await prisma_1.db.shop.findUnique({
         where: { slug: shopSlug },

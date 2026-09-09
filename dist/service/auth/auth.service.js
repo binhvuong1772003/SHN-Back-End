@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getMeService = exports.refreshTokenService = exports.logoutService = exports.loginWithEmailService = exports.resendVerificationEmail = exports.verifyEmailService = exports.sendVerificationEmailService = exports.registerWithMailService = exports.issueTokens = void 0;
+exports.updateProfileAvatarService = exports.updateProfileService = exports.getMeService = exports.refreshTokenService = exports.logoutService = exports.loginWithEmailService = exports.resendVerificationEmail = exports.verifyEmailService = exports.sendVerificationEmailService = exports.registerWithMailService = exports.issueTokens = void 0;
 const jwt_1 = require("../../utils/jwt");
 const prisma_1 = require("../../db/prisma");
 const ApiError_1 = require("../../utils/ApiError");
@@ -12,6 +12,7 @@ const crypto_1 = __importDefault(require("crypto"));
 const mailer_1 = require("../../utils/mailer");
 const hash_1 = require("../../utils/hash");
 const email_queue_1 = require("../../queues/email.queue");
+const cloudinary_1 = require("../../utils/cloudinary");
 const REFRESH_EXPIRES = process.env.JWT_REFRESH_EXPIRES || "30d";
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 const VERIFICATION_TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -250,3 +251,32 @@ const getMeService = async (userId) => {
     return user;
 };
 exports.getMeService = getMeService;
+const getSafeUser = async (userId) => {
+    const user = await prisma_1.db.user.findUnique({
+        where: { id: userId },
+        select: {
+            id: true,
+            name: true,
+            email: true,
+            avatarUrl: true,
+            isVerified: true,
+            role: true,
+        },
+    });
+    if (!user)
+        throw new ApiError_1.ApiError(404, "User not found");
+    return user;
+};
+const updateProfileService = async (userId, data) => {
+    await prisma_1.db.user.update({ where: { id: userId }, data: { name: data.name.trim() } });
+    return getSafeUser(userId);
+};
+exports.updateProfileService = updateProfileService;
+const updateProfileAvatarService = async (userId, file) => {
+    if (!file)
+        throw new ApiError_1.ApiError(400, "Avatar file is required");
+    const result = await (0, cloudinary_1.uploadToCloudinary)(file, cloudinary_1.CLOUDINARY_FOLDERS.USER_AVATAR, userId);
+    await prisma_1.db.user.update({ where: { id: userId }, data: { avatarUrl: result.secure_url } });
+    return getSafeUser(userId);
+};
+exports.updateProfileAvatarService = updateProfileAvatarService;

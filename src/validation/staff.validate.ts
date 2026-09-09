@@ -38,6 +38,10 @@ export const updateStaffSchedule = z.array(
   }),
 );
 
+export const updateStaffServices = z.object({
+  serviceIds: z.array(z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid service id")).max(100),
+});
+
 export const requestOffDaySchema = z
   .object({
     offDate: z.coerce.date(),
@@ -72,5 +76,6 @@ export const responseOffDaySchema = z
 export type InviteStaffInput = z.infer<typeof inviteStaffSchema>;
 export type UpdatedStaffInfo = z.infer<typeof updatedStaffInfo>;
 export type UpdateStaffSchedule = z.infer<typeof updateStaffSchedule>;
+export type UpdateStaffServices = z.infer<typeof updateStaffServices>;
 export type RequestOffDayInput = z.infer<typeof requestOffDaySchema>;
 export type ResponseOffDayInput = z.infer<typeof responseOffDaySchema>;

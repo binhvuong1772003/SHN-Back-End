@@ -9,6 +9,7 @@ const nofitication_controller_1 = require("../../controller/notification/nofitic
 const notiRouter = (0, express_1.Router)({ mergeParams: true });
 notiRouter.use(authenticate_middleware_1.authenticate, (0, shop_middleware_1.requireShopAccess)("STAFF"));
 notiRouter.get('/', (0, validation_middleware_1.validate)({ query: common_validate_1.notificationListQuerySchema }), nofitication_controller_1.getListNotificationController);
+notiRouter.patch('/read-all', nofitication_controller_1.markAllReadController);
 notiRouter.patch('/:id', (0, validation_middleware_1.validate)({ params: (0, common_validate_1.idParamSchema)('id') }), nofitication_controller_1.markReadController);
 notiRouter.delete('/:id', (0, validation_middleware_1.validate)({ params: (0, common_validate_1.idParamSchema)('id') }), nofitication_controller_1.deleteNotificationController);
 exports.default = notiRouter;

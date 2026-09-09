@@ -4,6 +4,7 @@ export const CLOUDINARY_FOLDERS = {
   SHOP_LOGO: "shn/shops/logo",
   SHOP_COVER: "shn/shops/cover",
   SERVICE_IMAGE: "shn/services/images",
+  USER_AVATAR: "shn/users/avatars",
 };
 
 cloudinary.config({

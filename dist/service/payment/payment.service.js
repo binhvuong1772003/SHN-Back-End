@@ -27,7 +27,14 @@ const paymentDetailInclude = {
                 select: { id: true, name: true, email: true, avatarUrl: true },
             },
             staff: {
-                select: { id: true, name: true, email: true, avatarUrl: true },
+                select: {
+                    id: true,
+                    nickname: true,
+                    avatarUrl: true,
+                    user: {
+                        select: { id: true, name: true, email: true, avatarUrl: true },
+                    },
+                },
             },
             services: {
                 select: {
@@ -92,7 +99,9 @@ const createPayment = async (shopSlug, appointmentId, actorUserId, input) => {
     if (!actorUserId)
         throw new ApiError_1.ApiError(401, "Unauthorized");
     const { shop, appointment } = await getAppointmentForPayment(shopSlug, appointmentId);
-    const existing = await prisma_1.db.payment.findUnique({ where: { appointmentId: appointment.id } });
+    const existing = await prisma_1.db.payment.findUnique({
+        where: { appointmentId: appointment.id },
+    });
     if (existing)
         return { payment: existing, created: false };
     const payment = await prisma_1.db.$transaction(async (tx) => {
@@ -145,7 +154,12 @@ const getPaymentList = async (shopSlug, query) => {
     const createdAt = query.from || query.to
         ? {
             ...(query.from
-                ? { gte: dayjs_1.default.tz(query.from, shop.timezone).startOf("day").toDate() }
+                ? {
+                    gte: dayjs_1.default
+                        .tz(query.from, shop.timezone)
+                        .startOf("day")
+                        .toDate(),
+                }
                 : {}),
             ...(query.to
                 ? { lte: dayjs_1.default.tz(query.to, shop.timezone).endOf("day").toDate() }
@@ -156,14 +170,30 @@ const getPaymentList = async (shopSlug, query) => {
         AND: [
             { appointment: { is: { shopId: shop.id } } },
             ...(search
-                ? [{
+                ? [
+                    {
                         OR: [
                             { transactionId: { contains: search } },
-                            { appointment: { is: { customer: { is: { name: { contains: search } } } } } },
-                            { appointment: { is: { staff: { is: { name: { contains: search } } } } } },
-                            ...(idSearch ? [{ id: search }, { appointmentId: search }] : []),
+                            {
+                                appointment: {
+                                    is: { customer: { is: { name: { contains: search } } } },
+                                },
+                            },
+                            {
+                                appointment: {
+                                    is: {
+                                        staff: {
+                                            is: { user: { is: { name: { contains: search } } } },
+                                        },
+                                    },
+                                },
+                            },
+                            ...(idSearch
+                                ? [{ id: search }, { appointmentId: search }]
+                                : []),
                         ],
-                    }]
+                    },
+                ]
                 : []),
         ],
         ...(createdAt ? { createdAt } : {}),

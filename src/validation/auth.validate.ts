@@ -23,6 +23,12 @@ export const resendVerificationSchema = {
   body: z.object({ email: z.string().email("Invalid email address") }),
 };
 
+export const updateProfileSchema = {
+  body: z.object({
+    name: z.string().trim().min(1, "Name is required").max(100, "Name is too long"),
+  }),
+};
+
 export const refreshTokenSchema = {
   body: z.object({
     refreshToken: z.string(),

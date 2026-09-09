@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.refreshTokenSchema = exports.resendVerificationSchema = exports.emailVerificationQuerySchema = exports.loginSchema = exports.registerSchema = void 0;
+exports.refreshTokenSchema = exports.updateProfileSchema = exports.resendVerificationSchema = exports.emailVerificationQuerySchema = exports.loginSchema = exports.registerSchema = void 0;
 const zod_1 = __importDefault(require("zod"));
 exports.registerSchema = {
     body: zod_1.default.object({
@@ -23,6 +23,11 @@ exports.emailVerificationQuerySchema = {
 };
 exports.resendVerificationSchema = {
     body: zod_1.default.object({ email: zod_1.default.string().email("Invalid email address") }),
+};
+exports.updateProfileSchema = {
+    body: zod_1.default.object({
+        name: zod_1.default.string().trim().min(1, "Name is required").max(100, "Name is too long"),
+    }),
 };
 exports.refreshTokenSchema = {
     body: zod_1.default.object({

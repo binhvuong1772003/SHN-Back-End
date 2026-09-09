@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.countService = exports.updateService = exports.deleteService = exports.getServiceById = exports.getService = exports.createService = void 0;
+exports.getStaffServices = exports.replaceStaffServices = exports.countService = exports.updateService = exports.deleteService = exports.getServiceById = exports.getService = exports.createService = void 0;
 const prisma_1 = require("../../db/prisma");
 const cacheKeys_1 = require("../../cache/cacheKeys");
 const cacheInvalidation_1 = require("../../cache/cacheInvalidation");
@@ -60,20 +60,28 @@ const getService = async (shopSlug, query = {}) => {
             shopId: shop.id,
             ...(query.status ? { isActive: query.status === "ACTIVE" } : {}),
             ...(query.category ? { categoryId: query.category } : {}),
-            ...(search ? {
-                OR: [
-                    { name: { contains: search, mode: "insensitive" } },
-                    { description: { contains: search, mode: "insensitive" } },
-                    { category: { name: { contains: search, mode: "insensitive" } } },
-                ],
-            } : {}),
+            ...(search
+                ? {
+                    OR: [
+                        { name: { contains: search, mode: "insensitive" } },
+                        { description: { contains: search, mode: "insensitive" } },
+                        { category: { name: { contains: search, mode: "insensitive" } } },
+                    ],
+                }
+                : {}),
         };
-        const orderBy = query.sort === "NAME_ASC" ? { name: "asc" }
-            : query.sort === "NAME_DESC" ? { name: "desc" }
-                : query.sort === "PRICE_ASC" ? { basePrice: "asc" }
-                    : query.sort === "PRICE_DESC" ? { basePrice: "desc" }
-                        : query.sort === "DURATION_ASC" ? { durationMin: "asc" }
-                            : query.sort === "DURATION_DESC" ? { durationMin: "desc" }
+        const orderBy = query.sort === "NAME_ASC"
+            ? { name: "asc" }
+            : query.sort === "NAME_DESC"
+                ? { name: "desc" }
+                : query.sort === "PRICE_ASC"
+                    ? { basePrice: "asc" }
+                    : query.sort === "PRICE_DESC"
+                        ? { basePrice: "desc" }
+                        : query.sort === "DURATION_ASC"
+                            ? { durationMin: "asc" }
+                            : query.sort === "DURATION_DESC"
+                                ? { durationMin: "desc" }
                                 : { createdAt: "desc" };
         const [items, total, allCount, activeCount, inactiveCount, categoryRows] = await Promise.all([
             prisma_1.db.service.findMany({
@@ -94,7 +102,10 @@ const getService = async (shopSlug, query = {}) => {
             prisma_1.db.service.count({ where: { shopId: shop.id } }),
             prisma_1.db.service.count({ where: { shopId: shop.id, isActive: true } }),
             prisma_1.db.service.count({ where: { shopId: shop.id, isActive: false } }),
-            prisma_1.db.service.findMany({ where: { shopId: shop.id }, select: { categoryId: true } }),
+            prisma_1.db.service.findMany({
+                where: { shopId: shop.id },
+                select: { categoryId: true },
+            }),
         ]);
         const totalPages = Math.ceil(total / limit);
         const result = {
@@ -149,8 +160,9 @@ const deleteService = async (shopSlug, serviceId) => {
     if (!shop)
         throw new ApiError_1.ApiError(404, "Shop not found");
     const service = await prisma_1.db.service.findUnique({ where: { id: serviceId } });
-    if (!service)
+    if (!service || service.shopId !== shop.id) {
         throw new ApiError_1.ApiError(404, "Service not found");
+    }
     const result = await prisma_1.db.service.delete({
         where: {
             id: serviceId,
@@ -172,8 +184,9 @@ const updateService = async (shopSlug, serviceId, data) => {
     if (!shop)
         throw new ApiError_1.ApiError(404, "Shop not found");
     const service = await prisma_1.db.service.findUnique({ where: { id: serviceId } });
-    if (!service)
+    if (!service || service.shopId !== shop.id) {
         throw new ApiError_1.ApiError(404, "Service not found");
+    }
     const { options, deleteOptionIds, deleteValueIds, addons, deleteAddonIds, ...serviceData } = data;
     await prisma_1.db.$transaction(async (tx) => {
         if (Object.keys(serviceData).length > 0) {
@@ -296,3 +309,87 @@ const countService = async (shopSlug) => {
     return count;
 };
 exports.countService = countService;
+const replaceStaffServices = async (shopSlug, staffId, serviceIds) => {
+    const shop = await prisma_1.db.shop.findUnique({
+        where: { slug: shopSlug },
+    });
+    if (!shop)
+        throw new ApiError_1.ApiError(404, "Shop not found");
+    const staff = await prisma_1.db.shopStaff.findFirst({
+        where: {
+            id: staffId,
+            shopId: shop.id,
+            isActive: true,
+        },
+    });
+    if (!staff) {
+        throw new ApiError_1.ApiError(404, "Staff member not found in this shop");
+    }
+    const uniqueServiceIds = [...new Set(serviceIds)];
+    const services = await prisma_1.db.service.findMany({
+        where: {
+            id: { in: uniqueServiceIds },
+            shopId: shop.id,
+            isActive: true,
+        },
+        select: { id: true },
+    });
+    if (services.length !== uniqueServiceIds.length) {
+        throw new ApiError_1.ApiError(400, "One or more services were not found or inactive in this shop");
+    }
+    return prisma_1.db.$transaction(async (tx) => {
+        await tx.staffService.updateMany({
+            where: {
+                shopStaffId: staff.id,
+            },
+            data: {
+                isActive: false,
+            },
+        });
+        for (const serviceId of uniqueServiceIds) {
+            await tx.staffService.upsert({
+                where: {
+                    shopStaffId_serviceId: {
+                        shopStaffId: staff.id,
+                        serviceId,
+                    },
+                },
+                create: {
+                    shopStaffId: staff.id,
+                    serviceId,
+                    isActive: true,
+                },
+                update: {
+                    isActive: true,
+                },
+            });
+        }
+        return tx.staffService.findMany({
+            where: {
+                shopStaffId: staff.id,
+                isActive: true,
+            },
+            include: {
+                service: true,
+            },
+        });
+    });
+};
+exports.replaceStaffServices = replaceStaffServices;
+const getStaffServices = async (shopSlug, staffId) => {
+    const shop = await prisma_1.db.shop.findUnique({ where: { slug: shopSlug } });
+    if (!shop)
+        throw new ApiError_1.ApiError(404, "Shop not found");
+    const staff = await prisma_1.db.shopStaff.findFirst({
+        where: { id: staffId, shopId: shop.id },
+        select: { id: true },
+    });
+    if (!staff)
+        throw new ApiError_1.ApiError(404, "Staff member not found in this shop");
+    return prisma_1.db.staffService.findMany({
+        where: { shopStaffId: staff.id, isActive: true },
+        include: { service: true },
+        orderBy: { service: { name: "asc" } },
+    });
+};
+exports.getStaffServices = getStaffServices;

@@ -12,6 +12,7 @@ import crypto from "crypto";
 import { transporter } from "@/utils/mailer";
 import { hashPassword } from "@/utils/hash";
 import { emailQueue } from "@/queues/email.queue";
+import { uploadToCloudinary, CLOUDINARY_FOLDERS } from "@/utils/cloudinary";
 const REFRESH_EXPIRES = process.env.JWT_REFRESH_EXPIRES || "30d";
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 const VERIFICATION_TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -281,4 +282,35 @@ export const getMeService = async (userId: string) => {
   });
   if (!user) throw new ApiError(404, "User not found");
   return user;
+};
+
+const getSafeUser = async (userId: string) => {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      avatarUrl: true,
+      isVerified: true,
+      role: true,
+    },
+  });
+  if (!user) throw new ApiError(404, "User not found");
+  return user;
+};
+
+export const updateProfileService = async (userId: string, data: { name: string }) => {
+  await db.user.update({ where: { id: userId }, data: { name: data.name.trim() } });
+  return getSafeUser(userId);
+};
+
+export const updateProfileAvatarService = async (
+  userId: string,
+  file: Express.Multer.File,
+) => {
+  if (!file) throw new ApiError(400, "Avatar file is required");
+  const result = await uploadToCloudinary(file, CLOUDINARY_FOLDERS.USER_AVATAR, userId);
+  await db.user.update({ where: { id: userId }, data: { avatarUrl: result.secure_url } });
+  return getSafeUser(userId);
 };

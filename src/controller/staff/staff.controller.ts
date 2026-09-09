@@ -9,6 +9,7 @@ import {
   getStaffDetailService,
   getStaffListByShopService,
 } from "@/service/staff/staff.service";
+import { getStaffServices, replaceStaffServices } from "@/service/service/service.service";
 import type { ShopRole } from "@prisma/client";
 import { Request, Response, NextFunction } from "express";
 import { sendSuccess } from "@/utils/apiResponse";
@@ -168,6 +169,39 @@ export const getStaffListByShopController = async (
       sort,
     });
     return sendSuccess(res, result.items, { meta: { total: result.total, page: result.page, limit: result.limit, totalPages: result.totalPages, hasNext: result.page < result.totalPages, hasPrev: result.page > 1 } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getStaffServicesController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const result = await getStaffServices(
+      req.params.shopSlug as string,
+      req.params.staffId as string,
+    );
+    return sendSuccess(res, result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateStaffServicesController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const result = await replaceStaffServices(
+      req.params.shopSlug as string,
+      req.params.staffId as string,
+      req.body.serviceIds,
+    );
+    return sendSuccess(res, result);
   } catch (error) {
     next(error);
   }

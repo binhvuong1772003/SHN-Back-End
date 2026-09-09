@@ -3,6 +3,7 @@ import {
   createAppointment,
   getAppointmentsByShopId,
   getAppointmentsByDay,
+  getAppointmentsByDayForUser,
   changeAppointmentStatus,
   getAppointmentLifecycle,
   markAllAppointmentsAsDone,
@@ -11,35 +12,64 @@ import {
 import { CreateAppointmentInput } from "@/validation/appointment";
 import { sendSuccess } from "@/utils/apiResponse";
 
-export const createAppointmentController = async (req: Request, res: Response, next: NextFunction) => {
+export const createAppointmentController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const shopSlug = req.params.shopSlug as string;
-    const customerId = req.user?.userId as string;
+    const actorUserId = req.user?.userId as string;
     const input = req.body as CreateAppointmentInput;
-    const appointment = await createAppointment(input, customerId, shopSlug);
-    sendSuccess(res, appointment, { statusCode: 201, message: "Appointment created successfully" });
+    const { customerId: requestedCustomerId, ...appointmentInput } = input;
+    const appointment = await createAppointment(
+      appointmentInput,
+      requestedCustomerId ?? actorUserId,
+      shopSlug,
+      actorUserId,
+    );
+    sendSuccess(res, appointment, {
+      statusCode: 201,
+      message: "Appointment created successfully",
+    });
   } catch (error) {
     next(error);
   }
 };
 
-export const getAppointmentsByShopIdController = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const appointments = await getAppointmentsByShopId(req.params.shopSlug as string);
-    sendSuccess(res, appointments);
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const getAppointmentsByDayController = async (req: Request, res: Response, next: NextFunction) => {
+export const createSelfAppointmentController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const shopSlug = req.params.shopSlug as string;
-    const dateStr = req.query.date as string;
-    const appointments = await getAppointmentsByDay(
+    const actorUserId = req.user?.userId as string;
+    const input = req.body as CreateAppointmentInput;
+    const { customerId: _ignoredCustomerId, ...appointmentInput } = input;
+    const appointment = await createAppointment(
+      appointmentInput,
+      actorUserId,
       shopSlug,
-      dateStr,
-      req.query.assignedToMe === "true" ? req.user?.userId : undefined,
+      actorUserId,
+    );
+    sendSuccess(res, appointment, {
+      statusCode: 201,
+      message: "Appointment created successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAppointmentsByShopIdController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const appointments = await getAppointmentsByShopId(
+      req.params.shopSlug as string,
     );
     sendSuccess(res, appointments);
   } catch (error) {
@@ -47,7 +77,29 @@ export const getAppointmentsByDayController = async (req: Request, res: Response
   }
 };
 
-export const changeAppointmentStatusController = async (req: Request, res: Response, next: NextFunction) => {
+export const getAppointmentsByDayController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const shopSlug = req.params.shopSlug as string;
+    const dateStr = req.query.date as string;
+    const appointments =
+      req.query.assignedToMe === "true"
+        ? await getAppointmentsByDayForUser(shopSlug, dateStr, req.user!.userId)
+        : await getAppointmentsByDay(shopSlug, dateStr);
+    sendSuccess(res, appointments);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const changeAppointmentStatusController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const appointment = await changeAppointmentStatus(
       req.params.shopSlug as string,
@@ -81,20 +133,30 @@ export const getAppointmentLifecycleController = async (
   }
 };
 
-export const markAllAppointmentsAsDoneController = async (req: Request, res: Response, next: NextFunction) => {
+export const markAllAppointmentsAsDoneController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const result = await markAllAppointmentsAsDone(
       req.params.shopSlug as string,
       req.user?.userId as string,
       req.shopStaff?.role,
     );
-    sendSuccess(res, result, { message: "All appointments marked as completed" });
+    sendSuccess(res, result, {
+      message: "All appointments marked as completed",
+    });
   } catch (error) {
     next(error);
   }
 };
 
-export const getIncomeByDayWeeklyController = async (req: Request, res: Response, next: NextFunction) => {
+export const getIncomeByDayWeeklyController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const income = await getIncomeByDayWeekly(req.params.shopSlug as string);
     sendSuccess(res, income);

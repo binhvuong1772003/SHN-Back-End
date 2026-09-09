@@ -1,8 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getStaffListByShopController = exports.getStaffDetailController = exports.getStaffScheduleController = exports.deleteStaffScheduleController = exports.updateStaffScheduleController = exports.updateStaffInfoController = exports.acceptInviteController = exports.inviteStaffController = void 0;
+exports.updateStaffServicesController = exports.getStaffServicesController = exports.getStaffListByShopController = exports.getStaffDetailController = exports.getStaffScheduleController = exports.deleteStaffScheduleController = exports.updateStaffScheduleController = exports.updateStaffInfoController = exports.acceptInviteController = exports.inviteStaffController = void 0;
 const ApiError_1 = require("../../utils/ApiError");
 const staff_service_1 = require("../../service/staff/staff.service");
+const service_service_1 = require("../../service/service/service.service");
 const apiResponse_1 = require("../../utils/apiResponse");
 const inviteStaffController = async (req, res, next) => {
     try {
@@ -121,3 +122,23 @@ const getStaffListByShopController = async (req, res, next) => {
     }
 };
 exports.getStaffListByShopController = getStaffListByShopController;
+const getStaffServicesController = async (req, res, next) => {
+    try {
+        const result = await (0, service_service_1.getStaffServices)(req.params.shopSlug, req.params.staffId);
+        return (0, apiResponse_1.sendSuccess)(res, result);
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.getStaffServicesController = getStaffServicesController;
+const updateStaffServicesController = async (req, res, next) => {
+    try {
+        const result = await (0, service_service_1.replaceStaffServices)(req.params.shopSlug, req.params.staffId, req.body.serviceIds);
+        return (0, apiResponse_1.sendSuccess)(res, result);
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.updateStaffServicesController = updateStaffServicesController;

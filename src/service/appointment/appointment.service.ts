@@ -2,7 +2,7 @@ import { db } from "@/db/prisma";
 import { ApiError } from "@/utils/ApiError";
 import { CreateAppointmentInput } from "@/validation/appointment";
 import { validateBookingSlot } from "@/service/calendar/calendar.service";
-import { addMinutesToTime } from "@/helper/slot.helper";
+import { addMinutesToTime, timeToMinutes } from "@/helper/slot.helper";
 import {
   priceDiscountCalculate,
   incrementPromotionUsage,
@@ -13,7 +13,7 @@ import timezone from "dayjs/plugin/timezone";
 dayjs.extend(utc);
 dayjs.extend(timezone);
 import { getIO } from "@/socket";
-import type { AppointmentStatus, ShopRole } from "@prisma/client";
+import type { AppointmentStatus, Prisma, ShopRole } from "@prisma/client";
 
 const appointmentTransitions: Record<AppointmentStatus, AppointmentStatus[]> = {
   PENDING: ["CONFIRMED", "CANCELLED"],
@@ -43,8 +43,9 @@ export const createAppointment = async (
   data: CreateAppointmentInput,
   customerId: string,
   shopSlug: string,
+  actorUserId: string,
 ) => {
-  if (!customerId) throw new ApiError(401, "Unauthorized");
+  if (!customerId || !actorUserId) throw new ApiError(401, "Unauthorized");
   const {
     staffId,
     date,
@@ -64,6 +65,52 @@ export const createAppointment = async (
   });
   if (!shop) throw new ApiError(404, "Shop not found");
 
+  const bookingForAnotherCustomer = actorUserId !== customerId;
+  if (bookingForAnotherCustomer) {
+    const actorStaff = await db.shopStaff.findFirst({
+      where: { shopId: shop.id, userId: actorUserId, isActive: true },
+      select: { role: true },
+    });
+    if (!actorStaff || !["MANAGER", "OWNER"].includes(actorStaff.role)) {
+      throw new ApiError(
+        403,
+        "Only managers can create appointments for another customer",
+      );
+    }
+
+    const shopCustomer = await db.shopCustomer.findUnique({
+      where: {
+        shopId_customerId: {
+          shopId: shop.id,
+          customerId,
+        },
+      },
+      select: { totalVisits: true, isBlocked: true },
+    });
+    if (
+      !shopCustomer ||
+      shopCustomer.isBlocked ||
+      shopCustomer.totalVisits <= 0
+    ) {
+      throw new ApiError(
+        403,
+        "This customer has not used a service at this shop",
+      );
+    }
+  }
+
+  const customer = await db.user.findFirst({
+    where: {
+      id: customerId,
+      role: "CUSTOMER",
+      isActive: true,
+    },
+    select: { id: true },
+  });
+  if (!customer) {
+    throw new ApiError(404, "Customer not found or inactive");
+  }
+
   // Fetch services with their options
   const services = serviceIds?.length
     ? await db.service.findMany({
@@ -79,6 +126,12 @@ export const createAppointment = async (
   const packages = packageIds?.length
     ? await db.servicePackage.findMany({
         where: { id: { in: packageIds }, shopId: shop.id, isActive: true },
+        include: {
+          items: {
+            where: { isIncluded: true },
+            select: { serviceId: true },
+          },
+        },
       })
     : [];
 
@@ -97,7 +150,10 @@ export const createAppointment = async (
     : [];
 
   if (serviceIds?.length && services.length !== serviceIds.length) {
-    throw new ApiError(404, "One or more services were not found or are unavailable");
+    throw new ApiError(
+      404,
+      "One or more services were not found or are unavailable",
+    );
   }
   if (packageIds?.length && packages.length !== packageIds.length) {
     throw new ApiError(
@@ -110,6 +166,56 @@ export const createAppointment = async (
       404,
       "One or more add-ons were not found or are unavailable",
     );
+  }
+
+  let assignedStaffId: string | undefined;
+  if (staffId) {
+    const shopStaff = await db.shopStaff.findFirst({
+      where: { id: staffId, shopId: shop.id, isActive: true },
+      select: { id: true, userId: true },
+    });
+    if (!shopStaff) {
+      throw new ApiError(404, "Staff not found in this shop");
+    }
+
+    const requestedServiceIds = [
+      ...new Set([
+        ...services.map((service) => service.id),
+        ...packages.flatMap((servicePackage) =>
+          servicePackage.items.map((item) => item.serviceId),
+        ),
+      ]),
+    ];
+
+    if (requestedServiceIds.length > 0) {
+      const assignedServices = await db.staffService.findMany({
+        where: {
+          shopStaffId: shopStaff.id,
+          serviceId: { in: requestedServiceIds },
+          isActive: true,
+          service: {
+            shopId: shop.id,
+            isActive: true,
+          },
+        },
+        select: { serviceId: true },
+      });
+      const assignedServiceIds = new Set(
+        assignedServices.map((service) => service.serviceId),
+      );
+      const unsupportedServiceIds = requestedServiceIds.filter(
+        (serviceId) => !assignedServiceIds.has(serviceId),
+      );
+
+      if (unsupportedServiceIds.length > 0) {
+        throw new ApiError(
+          400,
+          "The selected staff member cannot perform one or more selected services",
+        );
+      }
+    }
+
+    assignedStaffId = shopStaff.id;
   }
 
   if (services.length === 0 && packages.length === 0) {
@@ -163,17 +269,7 @@ export const createAppointment = async (
     staffId,
   });
 
-  // Get userId from ShopStaff if staffId provided (because Appointment.staffId references User.id)
-  // let assignedUserId: string | null = null;
-  // if (staffId) {
-  //   const shopStaff = await db.shopStaff.findFirst({
-  //     where: { id: staffId, shopId: shop.id, isActive: true },
-  //   });
-  //   if (!shopStaff) {
-  //     throw new ApiError(404, "Staff not found");
-  //   }
-  //   assignedUserId = shopStaff.userId;
-  // }
+  // Appointment.staffId stores ShopStaff.id.
 
   const subtotal =
     services.reduce((sum, s) => sum + (s.basePrice ?? 0), 0) +
@@ -192,73 +288,98 @@ export const createAppointment = async (
     );
   }
 
-  const appointment = await db.appointment.create({
-    data: {
-      shopId: shop.id,
-      customerId,
-      staffId: staffId,
-      date: appointmentDate,
-      startTime,
-      endTime,
-      status: shop.settings?.autoConfirm ? "CONFIRMED" : "PENDING",
-      source: source ?? "APP",
-      note: note ?? null,
-      promotionId: promotionId ?? null,
-      subtotal,
-      discountAmount,
-      totalAmount,
-      services: {
-        create: services.map((s) => {
-          const serviceOptionData = serviceOptions?.find(
-            (so) => so.serviceId === s.id,
-          );
-          const selectedOptionValues = serviceOptionData
-            ? optionValues.filter((ov) =>
-                serviceOptionData.optionValueIds.includes(ov.id),
-              )
-            : [];
+  const appointment = await db.$transaction(async (tx) => {
+    const appointment = await tx.appointment.create({
+      data: {
+        shopId: shop.id,
+        customerId,
+        staffId: assignedStaffId,
+        date: appointmentDate,
+        startTime,
+        endTime,
+        status: shop.settings?.autoConfirm ? "CONFIRMED" : "PENDING",
+        source: source ?? "APP",
+        note: note ?? null,
+        promotionId: promotionId ?? null,
+        subtotal,
+        discountAmount,
+        totalAmount,
+        services: {
+          create: services.map((s) => {
+            const serviceOptionData = serviceOptions?.find(
+              (so) => so.serviceId === s.id,
+            );
+            const selectedOptionValues = serviceOptionData
+              ? optionValues.filter((ov) =>
+                  serviceOptionData.optionValueIds.includes(ov.id),
+                )
+              : [];
 
-          return {
-            serviceId: s.id,
-            serviceName: s.name,
-            priceAtBooking: s.basePrice ?? 0,
-            durationMin: s.durationMin,
-            selectedValues: {
-              create: selectedOptionValues.map((ov) => ({
-                optionValueId: ov.id,
-                priceAtBooking: ov.price,
-              })),
-            },
-          };
-        }),
-      },
-      packages: {
-        create: packages.map((p) => ({
-          packageId: p.id,
-          priceAtBooking: p.basePrice,
-        })),
-      },
-      addons: {
-        create: addons.map((a) => ({
-          addonId: a.id,
-          priceAtBooking: a.price,
-        })),
-      },
-    },
-    include: {
-      services: {
-        include: {
-          selectedValues: true,
+            return {
+              serviceId: s.id,
+              serviceName: s.name,
+              priceAtBooking: s.basePrice ?? 0,
+              durationMin: s.durationMin,
+              selectedValues: {
+                create: selectedOptionValues.map((ov) => ({
+                  optionValueId: ov.id,
+                  priceAtBooking: ov.price,
+                })),
+              },
+            };
+          }),
+        },
+        packages: {
+          create: packages.map((p) => ({
+            packageId: p.id,
+            priceAtBooking: p.basePrice,
+          })),
+        },
+        addons: {
+          create: addons.map((a) => ({
+            addonId: a.id,
+            priceAtBooking: a.price,
+          })),
         },
       },
-      packages: true,
-      addons: {
-        include: {
-          addon: true,
+      include: {
+        services: {
+          include: {
+            selectedValues: true,
+          },
+        },
+        packages: true,
+        addons: {
+          include: {
+            addon: true,
+          },
+        },
+        customer: true,
+      },
+    });
+
+    const bookingAt = new Date();
+    await tx.shopCustomer.upsert({
+      where: {
+        shopId_customerId: {
+          shopId: shop.id,
+          customerId,
         },
       },
-      customer: true,
-    },
+      create: {
+        shopId: shop.id,
+        customerId,
+        firstBookingAt: bookingAt,
+        lastBookingAt: bookingAt,
+        totalBookings: 1,
+      },
+      update: {
+        lastBookingAt: bookingAt,
+        totalBookings: { increment: 1 },
+      },
+    });
+
+    return appointment;
   });
 
   await db.appointmentLifecycle.create({
@@ -268,7 +389,10 @@ export const createAppointment = async (
       toStatus: appointment.status,
       changedById: customerId,
       reason: "Appointment created",
-      metadata: { source: source ?? "APP", autoConfirmed: Boolean(shop.settings?.autoConfirm) },
+      metadata: {
+        source: source ?? "APP",
+        autoConfirmed: Boolean(shop.settings?.autoConfirm),
+      },
     },
   });
 
@@ -338,7 +462,11 @@ export const getAppointmentsByShopId = async (shopSlug: string) => {
     },
   });
 };
-export const getAppointmentsByDay = async (shopSlug: string, date: string, staffUserId?: string) => {
+export const getAppointmentsByDay = async (
+  shopSlug: string,
+  date: string,
+  staffId?: string,
+) => {
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
@@ -348,7 +476,7 @@ export const getAppointmentsByDay = async (shopSlug: string, date: string, staff
     where: {
       shopId: shop.id,
       date: appointmentDate,
-      ...(staffUserId ? { staffId: staffUserId } : {}),
+      ...(staffId ? { staffId } : {}),
     },
     include: {
       services: {
@@ -365,9 +493,213 @@ export const getAppointmentsByDay = async (shopSlug: string, date: string, staff
       customer: true,
     },
   });
-  console.log(data);
   return data;
 };
+
+export const getAppointmentsByDayForUser = async (
+  shopSlug: string,
+  date: string,
+  userId: string,
+) => {
+  const shop = await db.shop.findUnique({
+    where: { slug: shopSlug },
+    select: { id: true },
+  });
+  if (!shop) throw new ApiError(404, "Shop not found");
+  const staff = await db.shopStaff.findFirst({
+    where: { shopId: shop.id, userId, isActive: true },
+    select: { id: true },
+  });
+  if (!staff) return [];
+  return getAppointmentsByDay(shopSlug, date, staff.id);
+};
+
+export interface UpdateAppointmentPatch {
+  date?: string;
+  startTime?: string;
+  staffId?: string | null;
+  note?: string | null;
+  internalNote?: string | null;
+}
+
+export const updateAppointment = async (
+  shopSlug: string,
+  appointmentId: string,
+  patch: UpdateAppointmentPatch,
+  actorUserId: string,
+  actorRole: ShopRole | undefined,
+) => {
+  assertManagerCanChangeStatus(actorRole);
+  if (!actorUserId) throw new ApiError(401, "Unauthorized");
+
+  const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
+  if (!shop) throw new ApiError(404, "Shop not found");
+
+  const current = await db.appointment.findFirst({
+    where: { id: appointmentId, shopId: shop.id },
+    include: {
+      services: { select: { serviceId: true, durationMin: true } },
+      packages: {
+        select: {
+          package: {
+            select: {
+              items: {
+                where: { isIncluded: true },
+                select: { serviceId: true },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!current) throw new ApiError(404, "Appointment not found");
+  if (!["PENDING", "CONFIRMED"].includes(current.status)) {
+    throw new ApiError(
+      409,
+      "Only pending or confirmed appointments can be updated",
+    );
+  }
+
+  const currentDate = dayjs(current.date)
+    .tz(shop.timezone)
+    .format("YYYY-MM-DD");
+  const nextDate = patch.date ?? currentDate;
+  const nextStartTime = patch.startTime ?? current.startTime;
+  const durationMin =
+    timeToMinutes(current.endTime) - timeToMinutes(current.startTime);
+  if (durationMin < 15) {
+    throw new ApiError(400, "Appointment duration must be at least 15 minutes");
+  }
+
+  const currentStaff = current.staffId
+    ? await db.shopStaff.findFirst({
+        where: { id: current.staffId, shopId: shop.id, isActive: true },
+        select: { id: true },
+      })
+    : null;
+  if (current.staffId && !currentStaff) {
+    throw new ApiError(404, "Assigned staff not found in this shop");
+  }
+
+  let nextStaffId: string | null | undefined = current.staffId;
+  let nextShopStaffId = currentStaff?.id;
+  if (patch.staffId !== undefined) {
+    if (patch.staffId === null) {
+      nextStaffId = null;
+      nextShopStaffId = undefined;
+    } else {
+      const nextStaff = await db.shopStaff.findFirst({
+        where: { id: patch.staffId, shopId: shop.id, isActive: true },
+        select: { id: true, userId: true },
+      });
+      if (!nextStaff) throw new ApiError(404, "Staff not found in this shop");
+      nextStaffId = nextStaff.id;
+      nextShopStaffId = nextStaff.id;
+    }
+  }
+
+  const requestedServiceIds = [
+    ...new Set([
+      ...current.services.map((service) => service.serviceId),
+      ...current.packages.flatMap((item) =>
+        item.package.items.map((service) => service.serviceId),
+      ),
+    ]),
+  ];
+  if (nextShopStaffId && requestedServiceIds.length > 0) {
+    const assignedServices = await db.staffService.findMany({
+      where: {
+        shopStaffId: nextShopStaffId,
+        serviceId: { in: requestedServiceIds },
+        isActive: true,
+        service: { shopId: shop.id, isActive: true },
+      },
+      select: { serviceId: true },
+    });
+    if (
+      new Set(assignedServices.map((service) => service.serviceId)).size !==
+      requestedServiceIds.length
+    ) {
+      throw new ApiError(
+        400,
+        "The selected staff member cannot perform one or more appointment services",
+      );
+    }
+  }
+
+  if (
+    patch.date !== undefined ||
+    patch.startTime !== undefined ||
+    patch.staffId !== undefined
+  ) {
+    await validateBookingSlot({
+      shopSlug,
+      date: nextDate,
+      startTime: nextStartTime,
+      durationMin,
+      staffId: nextShopStaffId,
+    });
+  }
+
+  const nextEndTime = addMinutesToTime(nextStartTime, durationMin);
+  const nextAppointmentDate = dayjs
+    .tz(nextDate, shop.timezone)
+    .startOf("day")
+    .toDate();
+  const patchMetadata = JSON.parse(
+    JSON.stringify(patch),
+  ) as Prisma.InputJsonObject;
+
+  return db.$transaction(async (tx) => {
+    const updateResult = await tx.appointment.updateMany({
+      where: { id: current.id, shopId: shop.id, status: current.status },
+      data: {
+        date: nextAppointmentDate,
+        startTime: nextStartTime,
+        endTime: nextEndTime,
+        staffId: nextStaffId,
+        ...(patch.note !== undefined ? { note: patch.note } : {}),
+        ...(patch.internalNote !== undefined
+          ? { internalNote: patch.internalNote }
+          : {}),
+      },
+    });
+    if (updateResult.count !== 1) {
+      throw new ApiError(409, "Appointment was changed by another request");
+    }
+
+    const updated = await tx.appointment.findUnique({
+      where: { id: current.id },
+    });
+    if (!updated) throw new ApiError(404, "Appointment not found");
+
+    await tx.appointmentLifecycle.create({
+      data: {
+        appointmentId: updated.id,
+        shopId: shop.id,
+        fromStatus: current.status,
+        toStatus: current.status,
+        changedById: actorUserId,
+        reason: "Appointment details updated",
+        metadata: patchMetadata,
+      },
+    });
+    await tx.auditLog.create({
+      data: {
+        shopId: shop.id,
+        userId: actorUserId,
+        action: "APPOINTMENT_UPDATED",
+        entity: "Appointment",
+        entityId: updated.id,
+        changes: patchMetadata,
+      },
+    });
+
+    return updated;
+  });
+};
+
 export const changeAppointmentStatus = async (
   shopSlug: string,
   appointmentId: string,
@@ -421,11 +753,54 @@ export const changeAppointmentStatus = async (
       },
     });
     if (updateResult.count !== 1) {
-      throw new ApiError(409, "Appointment status was changed by another request");
+      throw new ApiError(
+        409,
+        "Appointment status was changed by another request",
+      );
     }
 
-    const updated = await tx.appointment.findUnique({ where: { id: current.id } });
+    const updated = await tx.appointment.findUnique({
+      where: { id: current.id },
+    });
     if (!updated) throw new ApiError(404, "Appointment not found");
+
+    if (nextStatus === "COMPLETED") {
+      const shopCustomer = await tx.shopCustomer.findUnique({
+        where: {
+          shopId_customerId: {
+            shopId: updated.shopId,
+            customerId: updated.customerId,
+          },
+        },
+        select: { id: true, firstVisitAt: true },
+      });
+
+      if (shopCustomer) {
+        await tx.shopCustomer.update({
+          where: { id: shopCustomer.id },
+          data: {
+            ...(shopCustomer.firstVisitAt ? {} : { firstVisitAt: now }),
+            lastVisitAt: now,
+            totalVisits: { increment: 1 },
+            totalSpent: { increment: updated.totalAmount },
+          },
+        });
+      } else {
+        await tx.shopCustomer.create({
+          data: {
+            shopId: updated.shopId,
+            customerId: updated.customerId,
+            firstBookingAt: updated.createdAt,
+            lastBookingAt: updated.createdAt,
+            firstVisitAt: now,
+            lastVisitAt: now,
+            totalBookings: 1,
+            totalVisits: 1,
+            totalSpent: updated.totalAmount,
+          },
+        });
+      }
+    }
 
     await tx.appointmentLifecycle.create({
       data: {

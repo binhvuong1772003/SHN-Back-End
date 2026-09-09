@@ -13,8 +13,10 @@ import {
   getStaffScheduleController,
   getStaffDetailController,
   deleteStaffScheduleController,
+  getStaffServicesController,
+  updateStaffServicesController,
 } from "@/controller/staff/staff.controller";
-import { inviteStaffSchema, updatedStaffInfo, updateStaffSchedule } from "@/validation/staff.validate";
+import { inviteStaffSchema, updatedStaffInfo, updateStaffSchedule, updateStaffServices } from "@/validation/staff.validate";
 import offDayrouter from "./offDay.route";
 import {
   getSalaryConfigController,
@@ -37,6 +39,8 @@ staffRouter.put(
   upsertServiceCommissionController,
 );
 staffRouter.get("/:staffId/schedule", requireShopAccess("STAFF"), validate({ params: idParamSchema("staffId") }), getStaffScheduleController);
+staffRouter.get("/:staffId/services", requireShopAccess("MANAGER"), validate({ params: idParamSchema("staffId") }), getStaffServicesController);
+staffRouter.put("/:staffId/services", requireShopAccess("MANAGER"), validate({ params: idParamSchema("staffId"), body: updateStaffServices }), updateStaffServicesController);
 staffRouter.get("/:staffId/info", requireShopAccess("MANAGER"), validate({ params: idParamSchema("staffId") }), getStaffDetailController);
 staffRouter.get("/", requireShopAccess("STAFF"), validate({ query: staffListQuerySchema }), getStaffListByShopController);
 staffRouter.post("/invite", requireShopAccess("MANAGER"), validate({ body: inviteStaffSchema }), inviteStaffController);

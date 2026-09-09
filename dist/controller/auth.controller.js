@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getMeController = exports.logoutController = exports.refresthTokenController = exports.loginWithEmailController = exports.verifyEmailController = exports.reSendEmailVerifyController = exports.registerWithEmailController = void 0;
+exports.updateProfileAvatarController = exports.updateProfileController = exports.getMeController = exports.logoutController = exports.refresthTokenController = exports.loginWithEmailController = exports.verifyEmailController = exports.reSendEmailVerifyController = exports.registerWithEmailController = void 0;
 const auth_service_1 = require("../service/auth/auth.service");
 const ApiError_1 = require("../utils/ApiError");
 const apiResponse_1 = require("../utils/apiResponse");
@@ -120,3 +120,23 @@ const getMeController = async (req, res, next) => {
     }
 };
 exports.getMeController = getMeController;
+const updateProfileController = async (req, res, next) => {
+    try {
+        const user = await (0, auth_service_1.updateProfileService)(req.user?.userId, req.body);
+        (0, apiResponse_1.sendSuccess)(res, user);
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.updateProfileController = updateProfileController;
+const updateProfileAvatarController = async (req, res, next) => {
+    try {
+        const user = await (0, auth_service_1.updateProfileAvatarService)(req.user?.userId, req.file);
+        (0, apiResponse_1.sendSuccess)(res, user);
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.updateProfileAvatarController = updateProfileAvatarController;

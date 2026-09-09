@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.offDayListQuerySchema = exports.calendarMonthQuerySchema = exports.calendarSlotsListQuerySchema = exports.calendarDateQuerySchema = exports.calendarSlotsQuerySchema = exports.topCustomerQuerySchema = exports.notificationListQuerySchema = exports.staffListQuerySchema = exports.idParamSchema = exports.dateRangeSchema = exports.paginationSchema = exports.dateOnlySchema = exports.objectIdSchema = void 0;
+exports.offDayListQuerySchema = exports.calendarMonthQuerySchema = exports.calendarSlotsListQuerySchema = exports.calendarDateQuerySchema = exports.calendarSlotsQuerySchema = exports.customerListQuerySchema = exports.topCustomerQuerySchema = exports.notificationListQuerySchema = exports.staffListQuerySchema = exports.idParamSchema = exports.dateRangeSchema = exports.paginationSchema = exports.dateOnlySchema = exports.objectIdSchema = void 0;
 const zod_1 = require("zod");
 exports.objectIdSchema = zod_1.z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ID format");
 exports.dateOnlySchema = zod_1.z
@@ -32,6 +32,13 @@ exports.staffListQuerySchema = exports.paginationSchema.extend({
 exports.notificationListQuerySchema = exports.paginationSchema;
 exports.topCustomerQuerySchema = zod_1.z.object({
     limit: zod_1.z.coerce.number().int().min(1).max(100).default(5),
+});
+exports.customerListQuerySchema = exports.paginationSchema.extend({
+    search: zod_1.z.string().trim().max(100).optional(),
+    sort: zod_1.z.enum(["SPEND_DESC", "VISITS_DESC", "RECENT_VISIT", "LONGEST_INACTIVE", "NEWEST"]).default("SPEND_DESC"),
+    retention: zod_1.z.enum(["ALL", "NEW", "RETURNING"]).default("ALL"),
+    hasUpcomingAppointment: zod_1.z.enum(["true", "false"]).transform((value) => value === "true").optional(),
+    lastVisitBefore: exports.dateOnlySchema.optional(),
 });
 exports.calendarSlotsQuerySchema = zod_1.z.object({
     date: exports.dateOnlySchema,

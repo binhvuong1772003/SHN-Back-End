@@ -71,7 +71,11 @@ const aggregatePeriod = async (
         date: true,
         totalAmount: true,
         staffId: true,
-        staff: { select: { name: true, email: true } },
+        staff: {
+          select: {
+            user: { select: { id: true, name: true, email: true } },
+          },
+        },
         payment: { select: { paidAmount: true, method: true } },
         services: {
           select: {
@@ -124,6 +128,7 @@ const aggregatePeriod = async (
     string,
     { name: string; email?: string; appointments: number; revenue: number }
   >();
+  const staffUserIdByStaffId = new Map<string, string>();
 
   let revenue = 0;
   for (const appointment of appointments) {
@@ -138,9 +143,15 @@ const aggregatePeriod = async (
     );
 
     if (appointment.staffId) {
+      if (appointment.staff) {
+        staffUserIdByStaffId.set(
+          appointment.staffId,
+          appointment.staff.user.id,
+        );
+      }
       const staff = staffMap.get(appointment.staffId) ?? {
-        name: appointment.staff?.name ?? "Unknown staff",
-        email: appointment.staff?.email ?? undefined,
+        name: appointment.staff?.user.name ?? "Unknown staff",
+        email: appointment.staff?.user.email ?? undefined,
         appointments: 0,
         revenue: 0,
       };
@@ -245,7 +256,9 @@ const aggregatePeriod = async (
       staffId,
       ...value,
       revenue: round(value.revenue),
-      commission: round(staffPayroll.get(staffId) ?? 0),
+      commission: round(
+        staffPayroll.get(staffUserIdByStaffId.get(staffId) ?? "") ?? 0,
+      ),
     }))
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 8),

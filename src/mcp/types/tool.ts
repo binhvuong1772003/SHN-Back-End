@@ -7,7 +7,8 @@ export type McpToolAccess =
   | "SHOP_READ"
   | "FINANCE_READ"
   | "PAYROLL_READ_ALL"
-  | "OWNER_READ";
+  | "OWNER_READ"
+  | "APPOINTMENT_WRITE";
 
 export type McpToolMode = "read" | "write";
 

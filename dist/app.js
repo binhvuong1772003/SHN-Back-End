@@ -20,6 +20,7 @@ const metrics_middleware_1 = require("./middleware/metrics.middleware");
 const sentry_1 = require("./observability/sentry");
 const ai_1 = require("./ai/config/ai");
 const ai_routes_1 = __importDefault(require("./route/ai/ai.routes"));
+const marketplace_route_1 = __importDefault(require("./route/marketplace.route"));
 dayjs_1.default.extend(utc_1.default);
 dayjs_1.default.extend(timezone_1.default);
 const app = (0, express_1.default)();
@@ -57,6 +58,7 @@ app.use((0, express_session_1.default)({
 }));
 app.use("/auth", auth_route_1.default);
 app.use("/api/shops", shop_route_1.default);
+app.use("/api/marketplace", marketplace_route_1.default);
 app.use("/api/ai", ai_routes_1.default);
 (0, sentry_1.setupSentryExpress)(app);
 app.use(error_middleware_1.notFoundHandler);

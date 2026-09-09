@@ -8,7 +8,7 @@ const askAIService = async (message, context, history = []) => {
     const mcpClient = (0, mcp_client_1.createMcpClient)(context);
     await mcpClient.connect();
     try {
-        const result = await (0, agents_1.run)((0, admin_agent_1.createAdminAgent)(mcpClient), formatConversationInput(history, message), { context });
+        const result = await (0, agents_1.run)((0, admin_agent_1.createAdminAgent)(mcpClient, context), formatConversationInput(history, message, context), { context });
         return result.finalOutput;
     }
     finally {
@@ -16,13 +16,20 @@ const askAIService = async (message, context, history = []) => {
     }
 };
 exports.askAIService = askAIService;
-const formatConversationInput = (history, message) => {
+const formatConversationInput = (history, message, context) => {
+    const runtimeContext = [
+        "Authoritative runtime context (always use this over conversation history):",
+        `currentDate=${context.currentDate}`,
+        `timezone=${context.timezone}`,
+    ].join("\n");
     if (history.length === 0)
-        return message;
+        return `${runtimeContext}\n\n${message}`;
     const historyText = history
         .map((item) => `${item.role}: ${item.content}`)
         .join("\n");
     return [
+        runtimeContext,
+        "",
         "Conversation history:",
         historyText,
         "",

@@ -41,15 +41,18 @@ const getStaff = async (shopId: string, staffId: string) => {
   return staff;
 };
 
-const writeAudit = async (input: {
-  shopId: string;
-  userId: string;
-  action: string;
-  entity: string;
-  entityId: string;
-  changes?: unknown;
-  ipAddress?: string;
-}, client: Pick<Prisma.TransactionClient, "auditLog"> = db) => {
+const writeAudit = async (
+  input: {
+    shopId: string;
+    userId: string;
+    action: string;
+    entity: string;
+    entityId: string;
+    changes?: unknown;
+    ipAddress?: string;
+  },
+  client: Pick<Prisma.TransactionClient, "auditLog"> = db,
+) => {
   await client.auditLog.create({
     data: {
       shopId: input.shopId,
@@ -90,15 +93,18 @@ export const upsertSalaryConfigService = async (
       create: { shopId: shop.id, shopStaffId: staffId, ...input },
       update: input,
     });
-    await writeAudit({
-      shopId: shop.id,
-      userId: actorUserId,
-      action: "SALARY_CONFIG_UPDATED",
-      entity: "StaffSalaryConfig",
-      entityId: config.id,
-      changes: input,
-      ipAddress,
-    }, tx);
+    await writeAudit(
+      {
+        shopId: shop.id,
+        userId: actorUserId,
+        action: "SALARY_CONFIG_UPDATED",
+        entity: "StaffSalaryConfig",
+        entityId: config.id,
+        changes: input,
+        ipAddress,
+      },
+      tx,
+    );
     return config;
   });
 };
@@ -138,15 +144,18 @@ export const upsertServiceCommissionService = async (
       create: { shopStaffId: staffId, serviceId, ...input },
       update: input,
     });
-    await writeAudit({
-      shopId: shop.id,
-      userId: actorUserId,
-      action: "SERVICE_COMMISSION_UPDATED",
-      entity: "ServiceCommission",
-      entityId: commission.id,
-      changes: input,
-      ipAddress,
-    }, tx);
+    await writeAudit(
+      {
+        shopId: shop.id,
+        userId: actorUserId,
+        action: "SERVICE_COMMISSION_UPDATED",
+        entity: "ServiceCommission",
+        entityId: commission.id,
+        changes: input,
+        ipAddress,
+      },
+      tx,
+    );
     return commission;
   });
 };
@@ -163,43 +172,49 @@ const calculateDraftForStaff = async (
   queryEnd: Date,
 ) => {
   const config = staff.salaryConfig;
-  const [attendances, appointments, commissions, positiveReviews, noShows, schedules] =
-    await Promise.all([
-      db.attendance.findMany({
-        where: {
-          shopStaffId: staff.id,
-          date: { gte: periodStart, lte: queryEnd },
-        },
-      }),
-      db.appointment.findMany({
-        where: {
-          shopId: shop.id,
-          staffId: staff.userId,
-          date: { gte: periodStart, lte: queryEnd },
-          status: "COMPLETED",
-          payment: { is: { status: "PAID" } },
-        },
-        include: { services: true },
-      }),
-      db.serviceCommission.findMany({ where: { shopStaffId: staff.id } }),
-      db.review.count({
-        where: {
-          shopId: shop.id,
-          staffId: staff.userId,
-          rating: { gte: 4 },
-          createdAt: { gte: periodStart, lte: queryEnd },
-        },
-      }),
-      db.appointment.count({
-        where: {
-          shopId: shop.id,
-          staffId: staff.userId,
-          status: "NO_SHOW",
-          date: { gte: periodStart, lte: queryEnd },
-        },
-      }),
-      db.staffSchedule.findMany({ where: { shopStaffId: staff.id } }),
-    ]);
+  const [
+    attendances,
+    appointments,
+    commissions,
+    positiveReviews,
+    noShows,
+    schedules,
+  ] = await Promise.all([
+    db.attendance.findMany({
+      where: {
+        shopStaffId: staff.id,
+        date: { gte: periodStart, lte: queryEnd },
+      },
+    }),
+    db.appointment.findMany({
+      where: {
+        shopId: shop.id,
+        staffId: staff.id,
+        date: { gte: periodStart, lte: queryEnd },
+        status: "COMPLETED",
+        payment: { is: { status: "PAID" } },
+      },
+      include: { services: true },
+    }),
+    db.serviceCommission.findMany({ where: { shopStaffId: staff.id } }),
+    db.review.count({
+      where: {
+        shopId: shop.id,
+        staffId: staff.userId,
+        rating: { gte: 4 },
+        createdAt: { gte: periodStart, lte: queryEnd },
+      },
+    }),
+    db.appointment.count({
+      where: {
+        shopId: shop.id,
+        staffId: staff.id,
+        status: "NO_SHOW",
+        date: { gte: periodStart, lte: queryEnd },
+      },
+    }),
+    db.staffSchedule.findMany({ where: { shopStaffId: staff.id } }),
+  ]);
 
   const totalWorkMinutes = attendances.reduce(
     (sum, item) => sum + item.workMinutes,
@@ -215,7 +230,9 @@ const calculateDraftForStaff = async (
   );
   const scheduledMinutesForAttendance = attendances.reduce((sum, item) => {
     if (!item.checkIn) return sum;
-    const schedule = scheduleByDay.get(dayjs(item.date).tz(shop.timezone).day());
+    const schedule = scheduleByDay.get(
+      dayjs(item.date).tz(shop.timezone).day(),
+    );
     if (!schedule || schedule.isOff) return sum;
     const [startHour, startMinute] = schedule.startTime.split(":").map(Number);
     const [endHour, endMinute] = schedule.endTime.split(":").map(Number);
@@ -309,8 +326,7 @@ const calculateDraftForStaff = async (
     scheduledMinutesForAttendance > 0
       ? baseSalary / scheduledMinutesForAttendance
       : 0;
-  const otAmount =
-    overtimeMinutes * baseRatePerMinute * config.otMultiplier;
+  const otAmount = overtimeMinutes * baseRatePerMinute * config.otMultiplier;
   if (otAmount > 0) {
     lineItems.push({
       type: "OVERTIME",
@@ -375,18 +391,27 @@ export const generateDraftPayrollsService = async (
     },
   });
   if (input.staffIds && staffMembers.length !== input.staffIds.length) {
-    throw new ApiError(404, "One or more staff members were not found in this shop");
+    throw new ApiError(
+      404,
+      "One or more staff members were not found in this shop",
+    );
   }
 
   const created = [];
   const skipped: { staffId: string; reason: string }[] = [];
   for (const staff of staffMembers) {
     if (!staff.salaryConfig) {
-      skipped.push({ staffId: staff.id, reason: "Salary configuration is missing" });
+      skipped.push({
+        staffId: staff.id,
+        reason: "Salary configuration is missing",
+      });
       continue;
     }
     if (staff.salaryConfig.effectiveFrom > queryEnd) {
-      skipped.push({ staffId: staff.id, reason: "Salary configuration is not yet effective" });
+      skipped.push({
+        staffId: staff.id,
+        reason: "Salary configuration is not yet effective",
+      });
       continue;
     }
     const existing = await db.payroll.findUnique({
@@ -400,28 +425,36 @@ export const generateDraftPayrollsService = async (
       },
     });
     if (existing) {
-      skipped.push({ staffId: staff.id, reason: "Payroll already exists for this period" });
+      skipped.push({
+        staffId: staff.id,
+        reason: "Payroll already exists for this period",
+      });
       continue;
     }
 
     const data = await calculateDraftForStaff(
       shop,
-      staff as typeof staff & { salaryConfig: NonNullable<typeof staff.salaryConfig> },
+      staff as typeof staff & {
+        salaryConfig: NonNullable<typeof staff.salaryConfig>;
+      },
       periodStart,
       periodEnd,
       queryEnd,
     );
     const payroll = await db.$transaction(async (tx) => {
       const createdPayroll = await tx.payroll.create({ data });
-      await writeAudit({
-        shopId: shop.id,
-        userId: actorUserId,
-        action: "PAYROLL_DRAFT_GENERATED",
-        entity: "Payroll",
-        entityId: createdPayroll.id,
-        changes: { staffId: staff.id, periodStart, periodEnd },
-        ipAddress,
-      }, tx);
+      await writeAudit(
+        {
+          shopId: shop.id,
+          userId: actorUserId,
+          action: "PAYROLL_DRAFT_GENERATED",
+          entity: "Payroll",
+          entityId: createdPayroll.id,
+          changes: { staffId: staff.id, periodStart, periodEnd },
+          ipAddress,
+        },
+        tx,
+      );
       return createdPayroll;
     });
     created.push({ ...payroll, staffId: staff.id });
@@ -468,32 +501,32 @@ export const getPayrollListService = async (
     userId = (await getStaff(shop.id, query.staffId)).userId;
   }
   const where = {
-      shopId: shop.id,
-      ...(userId ? { userId } : {}),
-      ...(query.status ? { status: query.status } : {}),
-      ...(query.periodStart || query.periodEnd
-        ? {
-            periodStart: {
-              ...(query.periodStart
-                ? {
-                    gte: dayjs
-                      .tz(query.periodStart, shop.timezone)
-                      .startOf("day")
-                      .toDate(),
-                  }
-                : {}),
-              ...(query.periodEnd
-                ? {
-                    lte: dayjs
-                      .tz(query.periodEnd, shop.timezone)
-                      .startOf("day")
-                      .toDate(),
-                  }
-                : {}),
-            },
-          }
-        : {}),
-    };
+    shopId: shop.id,
+    ...(userId ? { userId } : {}),
+    ...(query.status ? { status: query.status } : {}),
+    ...(query.periodStart || query.periodEnd
+      ? {
+          periodStart: {
+            ...(query.periodStart
+              ? {
+                  gte: dayjs
+                    .tz(query.periodStart, shop.timezone)
+                    .startOf("day")
+                    .toDate(),
+                }
+              : {}),
+            ...(query.periodEnd
+              ? {
+                  lte: dayjs
+                    .tz(query.periodEnd, shop.timezone)
+                    .startOf("day")
+                    .toDate(),
+                }
+              : {}),
+          },
+        }
+      : {}),
+  };
   const page = Math.max(1, query.page ?? 1);
   const limit = Math.min(100, Math.max(1, query.limit ?? 20));
   const total = await db.payroll.count({ where });
@@ -533,7 +566,9 @@ export const getPayrollDetailService = async (
   payrollId: string,
 ) => {
   const shop = await getShop(shopSlug);
-  return (await attachStaffIds([await getPayrollInShop(shop.id, payrollId)]))[0];
+  return (
+    await attachStaffIds([await getPayrollInShop(shop.id, payrollId)])
+  )[0];
 };
 
 export const adjustDraftPayrollService = async (
@@ -581,15 +616,18 @@ export const adjustDraftPayrollService = async (
         },
       },
     });
-    await writeAudit({
-      shopId: shop.id,
-      userId: actorUserId,
-      action: isBonus ? "PAYROLL_BONUS_ADDED" : "PAYROLL_DEDUCTION_ADDED",
-      entity: "Payroll",
-      entityId: payroll.id,
-      changes: input,
-      ipAddress,
-    }, tx);
+    await writeAudit(
+      {
+        shopId: shop.id,
+        userId: actorUserId,
+        action: isBonus ? "PAYROLL_BONUS_ADDED" : "PAYROLL_DEDUCTION_ADDED",
+        entity: "Payroll",
+        entityId: payroll.id,
+        changes: input,
+        ipAddress,
+      },
+      tx,
+    );
     return updated;
   });
 };
@@ -614,15 +652,18 @@ export const confirmPayrollService = async (
         approvedAt: new Date(),
       },
     });
-    await writeAudit({
-      shopId: shop.id,
-      userId: actorUserId,
-      action: "PAYROLL_CONFIRMED",
-      entity: "Payroll",
-      entityId: payroll.id,
-      changes: { from: "DRAFT", to: "CONFIRMED" },
-      ipAddress,
-    }, tx);
+    await writeAudit(
+      {
+        shopId: shop.id,
+        userId: actorUserId,
+        action: "PAYROLL_CONFIRMED",
+        entity: "Payroll",
+        entityId: payroll.id,
+        changes: { from: "DRAFT", to: "CONFIRMED" },
+        ipAddress,
+      },
+      tx,
+    );
     return updated;
   });
 };
@@ -649,15 +690,18 @@ export const payPayrollService = async (
         paymentNote: input.paymentNote,
       },
     });
-    await writeAudit({
-      shopId: shop.id,
-      userId: actorUserId,
-      action: "PAYROLL_PAID",
-      entity: "Payroll",
-      entityId: payroll.id,
-      changes: input,
-      ipAddress,
-    }, tx);
+    await writeAudit(
+      {
+        shopId: shop.id,
+        userId: actorUserId,
+        action: "PAYROLL_PAID",
+        entity: "Payroll",
+        entityId: payroll.id,
+        changes: input,
+        ipAddress,
+      },
+      tx,
+    );
     return updated;
   });
 };

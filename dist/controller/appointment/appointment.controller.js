@@ -1,21 +1,42 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getIncomeByDayWeeklyController = exports.markAllAppointmentsAsDoneController = exports.getAppointmentLifecycleController = exports.changeAppointmentStatusController = exports.getAppointmentsByDayController = exports.getAppointmentsByShopIdController = exports.createAppointmentController = void 0;
+exports.getIncomeByDayWeeklyController = exports.markAllAppointmentsAsDoneController = exports.getAppointmentLifecycleController = exports.changeAppointmentStatusController = exports.getAppointmentsByDayController = exports.getAppointmentsByShopIdController = exports.createSelfAppointmentController = exports.createAppointmentController = void 0;
 const appointment_service_1 = require("../../service/appointment/appointment.service");
 const apiResponse_1 = require("../../utils/apiResponse");
 const createAppointmentController = async (req, res, next) => {
     try {
         const shopSlug = req.params.shopSlug;
-        const customerId = req.user?.userId;
+        const actorUserId = req.user?.userId;
         const input = req.body;
-        const appointment = await (0, appointment_service_1.createAppointment)(input, customerId, shopSlug);
-        (0, apiResponse_1.sendSuccess)(res, appointment, { statusCode: 201, message: "Appointment created successfully" });
+        const { customerId: requestedCustomerId, ...appointmentInput } = input;
+        const appointment = await (0, appointment_service_1.createAppointment)(appointmentInput, requestedCustomerId ?? actorUserId, shopSlug, actorUserId);
+        (0, apiResponse_1.sendSuccess)(res, appointment, {
+            statusCode: 201,
+            message: "Appointment created successfully",
+        });
     }
     catch (error) {
         next(error);
     }
 };
 exports.createAppointmentController = createAppointmentController;
+const createSelfAppointmentController = async (req, res, next) => {
+    try {
+        const shopSlug = req.params.shopSlug;
+        const actorUserId = req.user?.userId;
+        const input = req.body;
+        const { customerId: _ignoredCustomerId, ...appointmentInput } = input;
+        const appointment = await (0, appointment_service_1.createAppointment)(appointmentInput, actorUserId, shopSlug, actorUserId);
+        (0, apiResponse_1.sendSuccess)(res, appointment, {
+            statusCode: 201,
+            message: "Appointment created successfully",
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.createSelfAppointmentController = createSelfAppointmentController;
 const getAppointmentsByShopIdController = async (req, res, next) => {
     try {
         const appointments = await (0, appointment_service_1.getAppointmentsByShopId)(req.params.shopSlug);
@@ -30,7 +51,9 @@ const getAppointmentsByDayController = async (req, res, next) => {
     try {
         const shopSlug = req.params.shopSlug;
         const dateStr = req.query.date;
-        const appointments = await (0, appointment_service_1.getAppointmentsByDay)(shopSlug, dateStr, req.query.assignedToMe === "true" ? req.user?.userId : undefined);
+        const appointments = req.query.assignedToMe === "true"
+            ? await (0, appointment_service_1.getAppointmentsByDayForUser)(shopSlug, dateStr, req.user.userId)
+            : await (0, appointment_service_1.getAppointmentsByDay)(shopSlug, dateStr);
         (0, apiResponse_1.sendSuccess)(res, appointments);
     }
     catch (error) {
@@ -61,7 +84,9 @@ exports.getAppointmentLifecycleController = getAppointmentLifecycleController;
 const markAllAppointmentsAsDoneController = async (req, res, next) => {
     try {
         const result = await (0, appointment_service_1.markAllAppointmentsAsDone)(req.params.shopSlug, req.user?.userId, req.shopStaff?.role);
-        (0, apiResponse_1.sendSuccess)(res, result, { message: "All appointments marked as completed" });
+        (0, apiResponse_1.sendSuccess)(res, result, {
+            message: "All appointments marked as completed",
+        });
     }
     catch (error) {
         next(error);

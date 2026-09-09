@@ -6,6 +6,8 @@ import {
   verifyEmailService,
   refreshTokenService,
   getMeService,
+  updateProfileService,
+  updateProfileAvatarService,
 } from "@/service/auth/auth.service";
 import { Request, Response, NextFunction } from "express";
 import type { RegisterInput } from "@/validation/auth.validate";
@@ -147,5 +149,31 @@ export const getMeController = async (
     sendSuccess(res, user);
   } catch (err) {
     next(err);
+  }
+};
+
+export const updateProfileController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const user = await updateProfileService(req.user?.userId!, req.body);
+    sendSuccess(res, user);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateProfileAvatarController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const user = await updateProfileAvatarService(req.user?.userId!, req.file as Express.Multer.File);
+    sendSuccess(res, user);
+  } catch (error) {
+    next(error);
   }
 };

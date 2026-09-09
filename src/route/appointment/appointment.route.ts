@@ -3,6 +3,7 @@ import { authenticate } from "@/middleware/authenticate.middleware";
 import { validate } from "@/middleware/validation.middleware";
 import {
   createAppointmentSchema,
+  createManagerAppointmentSchema,
   getAppointmentsByDaySchema,
   getAppointmentsSchema,
   updateAppointmentStatusSchema,
@@ -11,6 +12,7 @@ import { idParamSchema } from "@/validation/common.validate";
 import { requireShopAccess } from "@/middleware/shop.middleware";
 import {
   createAppointmentController,
+  createSelfAppointmentController,
   getAppointmentsByShopIdController,
   getAppointmentsByDayController,
   changeAppointmentStatusController,
@@ -32,11 +34,19 @@ import {
 const appointmentRouter = Router({ mergeParams: true });
 
 appointmentRouter.use(authenticate);
+
+appointmentRouter.post(
+  "/self",
+  validate(createAppointmentSchema),
+  createSelfAppointmentController,
+);
+
 appointmentRouter.use(requireShopAccess("STAFF"));
 
 appointmentRouter.post(
   "/",
-  validate(createAppointmentSchema),
+  requireShopAccess("MANAGER"),
+  validate(createManagerAppointmentSchema),
   createAppointmentController,
 );
 appointmentRouter.get(
@@ -52,7 +62,10 @@ appointmentRouter.get(
 appointmentRouter.put(
   "/:appointmentId",
   requireShopAccess("MANAGER"),
-  validate({ params: idParamSchema("appointmentId"), body: updateAppointmentStatusSchema.body }),
+  validate({
+    params: idParamSchema("appointmentId"),
+    body: updateAppointmentStatusSchema.body,
+  }),
   changeAppointmentStatusController,
 );
 appointmentRouter.get(
@@ -62,7 +75,10 @@ appointmentRouter.get(
 );
 appointmentRouter.post(
   "/:appointmentId/payment",
-  validate({ params: paymentParamsSchema.params, body: createPaymentSchema.body }),
+  validate({
+    params: paymentParamsSchema.params,
+    body: createPaymentSchema.body,
+  }),
   createPaymentController,
 );
 appointmentRouter.get(
@@ -73,9 +89,16 @@ appointmentRouter.get(
 appointmentRouter.post(
   "/:appointmentId/payment/confirm",
   requireShopAccess("MANAGER"),
-  validate({ params: paymentParamsSchema.params, body: confirmPaymentSchema.body }),
+  validate({
+    params: paymentParamsSchema.params,
+    body: confirmPaymentSchema.body,
+  }),
   confirmPaymentController,
 );
 appointmentRouter.get("/income/weekly", getIncomeByDayWeeklyController);
-appointmentRouter.put("/all/done", requireShopAccess("MANAGER"), markAllAppointmentsAsDoneController);
+appointmentRouter.put(
+  "/all/done",
+  requireShopAccess("MANAGER"),
+  markAllAppointmentsAsDoneController,
+);
 export default appointmentRouter;

@@ -96,7 +96,7 @@ export const validateBookingSlot = async (input: ValidateBookingSlotInput) => {
       appointmentDate,
     );
     if (!available) {
-    throw new ApiError(400, reason || "Staff is unavailable");
+      throw new ApiError(400, reason || "Staff is unavailable");
     }
   }
 
@@ -211,6 +211,32 @@ export const getAvailableSlots = async (input: GetAvailableSlotsInput) => {
     availableSlots,
     busySlots: allSlots.length - availableSlots.length,
   };
+};
+
+export const getAvailableSlotsForStaffUser = async (input: {
+  shopSlug: string;
+  userId: string;
+  date: string;
+  durationMin: number;
+}) => {
+  const shop = await db.shop.findUnique({
+    where: { slug: input.shopSlug },
+    select: { id: true },
+  });
+  if (!shop) throw new ApiError(404, "Shop not found");
+
+  const staff = await db.shopStaff.findFirst({
+    where: { shopId: shop.id, userId: input.userId, isActive: true },
+    select: { id: true },
+  });
+  if (!staff) throw new ApiError(404, "Staff member not found in this shop");
+
+  return getAvailableSlots({
+    shopSlug: input.shopSlug,
+    date: input.date,
+    durationMin: input.durationMin,
+    staffId: staff.id,
+  });
 };
 
 export const getAllSlots = async (

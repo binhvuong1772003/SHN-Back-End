@@ -3,6 +3,7 @@ import {
   getListNotification,
   markRead,
   deleteNotification,
+  markAllRead,
 } from '@/service/notification/notification.service';
 import { sendSuccess } from '@/utils/apiResponse';
 export const getListNotificationController = async (
@@ -13,7 +14,7 @@ export const getListNotificationController = async (
   try {
     const shopSlug = req.params.shopSlug as string;
     console.log('shopSlug:', shopSlug);
-    const result = await getListNotification(shopSlug, req.query as unknown as { page?: number; limit?: number });
+    const result = await getListNotification(shopSlug, req.user?.userId!, req.query as unknown as { page?: number; limit?: number });
     sendSuccess(res, result.items, { meta: result.meta });
   } catch (error) {
     next(error);
@@ -26,7 +27,8 @@ export const markReadController = async (
 ) => {
   try {
     const id = req.params.id as string;
-    const result = await markRead(id);
+    const shopSlug = req.params.shopSlug as string;
+    const result = await markRead(shopSlug, req.user?.userId!, id);
     sendSuccess(res, result);
   } catch (error) {
     next(error);
@@ -39,7 +41,22 @@ export const deleteNotificationController = async (
 ) => {
   try {
     const id = req.params.id as string;
-    const result = await deleteNotification(id);
+    const shopSlug = req.params.shopSlug as string;
+    const result = await deleteNotification(shopSlug, req.user?.userId!, id);
+    sendSuccess(res, result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const markAllReadController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const shopSlug = req.params.shopSlug as string;
+    const result = await markAllRead(shopSlug, req.user?.userId!);
     sendSuccess(res, result);
   } catch (error) {
     next(error);

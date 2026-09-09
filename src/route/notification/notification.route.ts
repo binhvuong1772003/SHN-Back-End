@@ -8,12 +8,14 @@ import {
   getListNotificationController,
   markReadController,
   deleteNotificationController,
+  markAllReadController,
 } from '@/controller/notification/nofitication.controller';
 
 const notiRouter = Router({ mergeParams: true });
 notiRouter.use(authenticate, requireShopAccess("STAFF"));
 
 notiRouter.get('/', validate({ query: notificationListQuerySchema }), getListNotificationController);
+notiRouter.patch('/read-all', markAllReadController);
 notiRouter.patch('/:id', validate({ params: idParamSchema('id') }), markReadController);
 notiRouter.delete('/:id', validate({ params: idParamSchema('id') }), deleteNotificationController);
 export default notiRouter;

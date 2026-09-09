@@ -39,8 +39,11 @@ export const createService = async (
     },
     include: { options: { include: { values: true } } },
   });
-  try { await clearServiceListCache(shopSlug); }
-  catch (error) { console.error("[Redis] service cache invalidation failed:", error); }
+  try {
+    await clearServiceListCache(shopSlug);
+  } catch (error) {
+    console.error("[Redis] service cache invalidation failed:", error);
+  }
   return result;
 };
 export interface ServiceListQuery {
@@ -49,10 +52,20 @@ export interface ServiceListQuery {
   search?: string;
   status?: "ACTIVE" | "INACTIVE";
   category?: string;
-  sort?: "RECENT" | "NAME_ASC" | "NAME_DESC" | "PRICE_ASC" | "PRICE_DESC" | "DURATION_ASC" | "DURATION_DESC";
+  sort?:
+    | "RECENT"
+    | "NAME_ASC"
+    | "NAME_DESC"
+    | "PRICE_ASC"
+    | "PRICE_DESC"
+    | "DURATION_ASC"
+    | "DURATION_DESC";
 }
 
-export const getService = async (shopSlug: string, query: ServiceListQuery = {}) => {
+export const getService = async (
+  shopSlug: string,
+  query: ServiceListQuery = {},
+) => {
   const shop = await db.shop.findUnique({
     where: { slug: shopSlug },
   });
@@ -63,59 +76,74 @@ export const getService = async (shopSlug: string, query: ServiceListQuery = {})
     const limit = Math.min(50, Math.max(1, Number(query.limit) || 5));
     const search = query.search?.trim();
     const where: any = {
-    shopId: shop.id,
-    ...(query.status ? { isActive: query.status === "ACTIVE" } : {}),
-    ...(query.category ? { categoryId: query.category } : {}),
-    ...(search ? {
-      OR: [
-        { name: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
-        { category: { name: { contains: search, mode: "insensitive" } } },
-      ],
-    } : {}),
+      shopId: shop.id,
+      ...(query.status ? { isActive: query.status === "ACTIVE" } : {}),
+      ...(query.category ? { categoryId: query.category } : {}),
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { description: { contains: search, mode: "insensitive" } },
+              { category: { name: { contains: search, mode: "insensitive" } } },
+            ],
+          }
+        : {}),
     };
-    const orderBy: any = query.sort === "NAME_ASC" ? { name: "asc" }
-    : query.sort === "NAME_DESC" ? { name: "desc" }
-    : query.sort === "PRICE_ASC" ? { basePrice: "asc" }
-    : query.sort === "PRICE_DESC" ? { basePrice: "desc" }
-    : query.sort === "DURATION_ASC" ? { durationMin: "asc" }
-    : query.sort === "DURATION_DESC" ? { durationMin: "desc" }
-    : { createdAt: "desc" };
+    const orderBy: any =
+      query.sort === "NAME_ASC"
+        ? { name: "asc" }
+        : query.sort === "NAME_DESC"
+          ? { name: "desc" }
+          : query.sort === "PRICE_ASC"
+            ? { basePrice: "asc" }
+            : query.sort === "PRICE_DESC"
+              ? { basePrice: "desc" }
+              : query.sort === "DURATION_ASC"
+                ? { durationMin: "asc" }
+                : query.sort === "DURATION_DESC"
+                  ? { durationMin: "desc" }
+                  : { createdAt: "desc" };
 
-    const [items, total, allCount, activeCount, inactiveCount, categoryRows] = await Promise.all([
-    db.service.findMany({
-      where,
-      orderBy,
-      skip: (page - 1) * limit,
-      take: limit,
-      include: {
-        category: true,
-        options: {
-          include: { values: true },
-          orderBy: { sortOrder: "asc" },
-        },
-        addons: true,
-      },
-    }),
-    db.service.count({ where }),
-    db.service.count({ where: { shopId: shop.id } }),
-    db.service.count({ where: { shopId: shop.id, isActive: true } }),
-    db.service.count({ where: { shopId: shop.id, isActive: false } }),
-    db.service.findMany({ where: { shopId: shop.id }, select: { categoryId: true } }),
-    ]);
+    const [items, total, allCount, activeCount, inactiveCount, categoryRows] =
+      await Promise.all([
+        db.service.findMany({
+          where,
+          orderBy,
+          skip: (page - 1) * limit,
+          take: limit,
+          include: {
+            category: true,
+            options: {
+              include: { values: true },
+              orderBy: { sortOrder: "asc" },
+            },
+            addons: true,
+          },
+        }),
+        db.service.count({ where }),
+        db.service.count({ where: { shopId: shop.id } }),
+        db.service.count({ where: { shopId: shop.id, isActive: true } }),
+        db.service.count({ where: { shopId: shop.id, isActive: false } }),
+        db.service.findMany({
+          where: { shopId: shop.id },
+          select: { categoryId: true },
+        }),
+      ]);
     const totalPages = Math.ceil(total / limit);
     const result = {
-    items,
-    total,
-    page: totalPages > 0 ? Math.min(page, totalPages) : 1,
-    limit,
-    totalPages,
-    counts: {
-      all: allCount,
-      active: activeCount,
-      inactive: inactiveCount,
-      categories: new Set(categoryRows.map((row) => row.categoryId).filter(Boolean)).size,
-    },
+      items,
+      total,
+      page: totalPages > 0 ? Math.min(page, totalPages) : 1,
+      limit,
+      totalPages,
+      counts: {
+        all: allCount,
+        active: activeCount,
+        inactive: inactiveCount,
+        categories: new Set(
+          categoryRows.map((row) => row.categoryId).filter(Boolean),
+        ).size,
+      },
     };
     return result;
   });
@@ -152,14 +180,19 @@ export const deleteService = async (shopSlug: string, serviceId: string) => {
   });
   if (!shop) throw new ApiError(404, "Shop not found");
   const service = await db.service.findUnique({ where: { id: serviceId } });
-  if (!service) throw new ApiError(404, "Service not found");
+  if (!service || service.shopId !== shop.id) {
+    throw new ApiError(404, "Service not found");
+  }
   const result = await db.service.delete({
     where: {
       id: serviceId,
     },
   });
-  try { await clearServiceListCache(shopSlug); }
-  catch (error) { console.error("[Redis] service cache invalidation failed:", error); }
+  try {
+    await clearServiceListCache(shopSlug);
+  } catch (error) {
+    console.error("[Redis] service cache invalidation failed:", error);
+  }
   return result;
 };
 export const updateService = async (
@@ -172,7 +205,9 @@ export const updateService = async (
   });
   if (!shop) throw new ApiError(404, "Shop not found");
   const service = await db.service.findUnique({ where: { id: serviceId } });
-  if (!service) throw new ApiError(404, "Service not found");
+  if (!service || service.shopId !== shop.id) {
+    throw new ApiError(404, "Service not found");
+  }
 
   const {
     options,
@@ -286,8 +321,11 @@ export const updateService = async (
     },
   });
 
-  try { await clearServiceListCache(shopSlug); }
-  catch (error) { console.error("[Redis] service cache invalidation failed:", error); }
+  try {
+    await clearServiceListCache(shopSlug);
+  } catch (error) {
+    console.error("[Redis] service cache invalidation failed:", error);
+  }
   return result;
 };
 export const countService = async (shopSlug: string) => {
@@ -299,4 +337,92 @@ export const countService = async (shopSlug: string) => {
     where: { shopId: shop.id },
   });
   return count;
+};
+
+export const replaceStaffServices = async (
+  shopSlug: string,
+  staffId: string,
+  serviceIds: string[],
+) => {
+  const shop = await db.shop.findUnique({
+    where: { slug: shopSlug },
+  });
+  if (!shop) throw new ApiError(404, "Shop not found");
+  const staff = await db.shopStaff.findFirst({
+    where: {
+      id: staffId,
+      shopId: shop.id,
+      isActive: true,
+    },
+  });
+  if (!staff) {
+    throw new ApiError(404, "Staff member not found in this shop");
+  }
+  const uniqueServiceIds = [...new Set(serviceIds)];
+  const services = await db.service.findMany({
+    where: {
+      id: { in: uniqueServiceIds },
+      shopId: shop.id,
+      isActive: true,
+    },
+    select: { id: true },
+  });
+  if (services.length !== uniqueServiceIds.length) {
+    throw new ApiError(
+      400,
+      "One or more services were not found or inactive in this shop",
+    );
+  }
+  return db.$transaction(async (tx) => {
+    await tx.staffService.updateMany({
+      where: {
+        shopStaffId: staff.id,
+      },
+      data: {
+        isActive: false,
+      },
+    });
+    for (const serviceId of uniqueServiceIds) {
+      await tx.staffService.upsert({
+        where: {
+          shopStaffId_serviceId: {
+            shopStaffId: staff.id,
+            serviceId,
+          },
+        },
+        create: {
+          shopStaffId: staff.id,
+          serviceId,
+          isActive: true,
+        },
+        update: {
+          isActive: true,
+        },
+      });
+    }
+    return tx.staffService.findMany({
+      where: {
+        shopStaffId: staff.id,
+        isActive: true,
+      },
+      include: {
+        service: true,
+      },
+    });
+  });
+};
+
+export const getStaffServices = async (shopSlug: string, staffId: string) => {
+  const shop = await db.shop.findUnique({ where: { slug: shopSlug } });
+  if (!shop) throw new ApiError(404, "Shop not found");
+  const staff = await db.shopStaff.findFirst({
+    where: { id: staffId, shopId: shop.id },
+    select: { id: true },
+  });
+  if (!staff) throw new ApiError(404, "Staff member not found in this shop");
+  return db.staffService.findMany({
+    where: { shopStaffId: staff.id, isActive: true },
+    include: { service: true },
+    orderBy: { service: { name: "asc" } },
+  });
 };

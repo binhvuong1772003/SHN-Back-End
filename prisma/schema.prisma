@@ -162,6 +162,7 @@
     id           String    @id @default(auto()) @map("_id") @db.ObjectId
     name         String
     email        String    @unique
+    phone        String?
     passwordHash String?
     role         UserRole  @default(CUSTOMER)
     avatarUrl    String?
@@ -177,8 +178,8 @@
     passwordResetTokens PasswordResetToken[]
     ownedShops          Shop[]               @relation("ShopOwner")
     staffProfiles       ShopStaff[]
+    shopCustomers       ShopCustomer[]
     customerAppointments Appointment[]       @relation("CustomerAppointments")
-    staffAppointments   Appointment[]        @relation("StaffAppointments")
     appointmentLifecycleChanges AppointmentLifecycle[] @relation("AppointmentLifecycleChanges")
     notifications       Notification[]
     reviews             Review[]
@@ -308,6 +309,7 @@
     servicePackages   ServicePackage[]
     addonServices     AddonService[]
     appointments      Appointment[]
+    customers         ShopCustomer[]
     promotions        Promotion[]
     notifications     Notification[]
     salaryConfigs     StaffSalaryConfig[]
@@ -320,6 +322,32 @@ businessHours ShopBusinessHour[]
     updatedAt DateTime @updatedAt
 
     @@map("shops")
+  }
+
+  model ShopCustomer {
+    id            String    @id @default(auto()) @map("_id") @db.ObjectId
+    shopId        String    @db.ObjectId
+    customerId    String    @db.ObjectId
+    firstBookingAt DateTime  @default(now())
+    lastBookingAt  DateTime  @default(now())
+    firstVisitAt   DateTime?
+    lastVisitAt    DateTime?
+    totalBookings  Int       @default(0)
+    totalVisits    Int       @default(0)
+    totalSpent     Float     @default(0)
+    isBlocked      Boolean   @default(false)
+    note           String?
+
+    shop     Shop @relation(fields: [shopId], references: [id])
+    customer User @relation(fields: [customerId], references: [id])
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([shopId, customerId])
+    @@index([shopId, lastVisitAt])
+    @@index([shopId, lastBookingAt])
+    @@map("shop_customers")
   }
 
   model ShopInvite {
@@ -377,11 +405,13 @@ businessHours ShopBusinessHour[]
     user User @relation(fields: [userId], references: [id])
     shop Shop @relation(fields: [shopId], references: [id])
 
-    schedule     StaffSchedule[]
-    offDays      StaffOffDay[]
-    attendances  Attendance[]
-    salaryConfig StaffSalaryConfig?
-    commissions  ServiceCommission[]
+    schedule      StaffSchedule[]
+    offDays       StaffOffDay[]
+    attendances   Attendance[]
+    salaryConfig  StaffSalaryConfig?
+    services      StaffService[]
+    appointments  Appointment[]
+    commissions   ServiceCommission[]
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
@@ -471,6 +501,21 @@ businessHours ShopBusinessHour[]
     updatedAt DateTime @updatedAt
 
     @@map("staff_salary_configs")
+  }
+
+  model StaffService {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    shopStaffId String   @db.ObjectId
+    serviceId   String   @db.ObjectId
+    isActive    Boolean  @default(true)
+
+    shopStaff ShopStaff @relation(fields: [shopStaffId], references: [id])
+    service   Service   @relation(fields: [serviceId], references: [id])
+
+    @@unique([shopStaffId, serviceId])
+    @@index([shopStaffId, isActive])
+    @@index([serviceId, isActive])
+    @@map("staff_services")
   }
 
   model ServiceCommission {
@@ -587,6 +632,7 @@ businessHours ShopBusinessHour[]
 
     options             ServiceOption[]
     appointmentServices AppointmentService[]
+    staffServices       StaffService[]
     commissions         ServiceCommission[]
     packageItems        ServicePackageItem[]
     addons              AddonService[]
@@ -715,9 +761,9 @@ businessHours ShopBusinessHour[]
     promotionId    String?           @db.ObjectId
     totalAmount    Float             @default(0)
 
-    shop     Shop  @relation(fields: [shopId], references: [id])
-    customer User  @relation("CustomerAppointments", fields: [customerId], references: [id])
-    staff    User? @relation("StaffAppointments", fields: [staffId], references: [id])
+    shop     Shop        @relation(fields: [shopId], references: [id])
+    customer User        @relation("CustomerAppointments", fields: [customerId], references: [id])
+    staff    ShopStaff?  @relation(fields: [staffId], references: [id])
     promotion Promotion? @relation(fields: [promotionId], references: [id])
 
     services AppointmentService[]

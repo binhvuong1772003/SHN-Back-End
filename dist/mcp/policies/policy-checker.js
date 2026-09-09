@@ -4,6 +4,9 @@ exports.canUseMcpTool = void 0;
 const canUseMcpTool = (context, access) => {
     if (access === "SELF_READ")
         return true;
+    if (access === "APPOINTMENT_WRITE") {
+        return context.role === "MANAGER" || context.role === "OWNER";
+    }
     if (access === "SHOP_READ" || access === "FINANCE_READ") {
         return context.role === "MANAGER" || context.role === "OWNER";
     }

@@ -41,8 +41,17 @@ const getCategories = async (shopSlug) => {
         throw new ApiError_1.ApiError(404, 'Shop not found');
     const result = await prisma_1.db.serviceCategory.findMany({
         where: { shopId: shop.id },
+        include: {
+            _count: {
+                select: { services: true },
+            },
+        },
+        orderBy: { sortOrder: 'asc' },
     });
-    return result;
+    return result.map(({ _count, ...category }) => ({
+        ...category,
+        serviceCount: _count.services,
+    }));
 };
 exports.getCategories = getCategories;
 const getCategoryById = async (id) => {
