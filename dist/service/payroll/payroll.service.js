@@ -128,10 +128,10 @@ const calculateDraftForStaff = async (shop, staff, periodStart, periodEnd, query
             include: { services: true },
         }),
         prisma_1.db.serviceCommission.findMany({ where: { shopStaffId: staff.id } }),
-        prisma_1.db.review.count({
+        prisma_1.db.staffReview.count({
             where: {
                 shopId: shop.id,
-                staffId: staff.userId,
+                shopStaffId: staff.id,
                 rating: { gte: 4 },
                 createdAt: { gte: periodStart, lte: queryEnd },
             },

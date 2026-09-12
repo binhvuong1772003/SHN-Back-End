@@ -29,8 +29,17 @@ exports.deleteCategoryController = deleteCategoryController;
 const getCategoriesController = async (req, res, next) => {
     try {
         const shopSlug = req.params.shopSlug;
-        const result = await (0, category_service_1.getCategories)(shopSlug);
-        (0, apiResponse_1.sendSuccess)(res, result);
+        const result = await (0, category_service_1.getCategories)(shopSlug, req.query);
+        (0, apiResponse_1.sendSuccess)(res, result.items, {
+            meta: {
+                total: result.total,
+                page: result.page,
+                limit: result.limit,
+                totalPages: result.totalPages,
+                hasNext: result.page < result.totalPages,
+                hasPrev: result.page > 1,
+            },
+        });
     }
     catch (error) {
         next(error);

@@ -5,6 +5,10 @@ import {
   getPublicShopBySlug,
   getPublicShopReviews,
 } from "@/service/marketplace/marketplace.service";
+import {
+  listServiceReviews,
+  listStaffReviews,
+} from "@/service/shop/review.service";
 import { sendSuccess } from "@/utils/apiResponse";
 
 export const getPublicMarketplaceShopsController = async (
@@ -18,6 +22,13 @@ export const getPublicMarketplaceShopsController = async (
       limit: Number(req.query.limit) || 12,
       search: typeof req.query.search === "string" ? req.query.search : undefined,
       city: typeof req.query.city === "string" ? req.query.city : undefined,
+      type:
+        req.query.type === "NAIL" ||
+        req.query.type === "SPA" ||
+        req.query.type === "HAIR" ||
+        req.query.type === "COMBO"
+          ? req.query.type
+          : undefined,
     });
     sendSuccess(res, result.items, { meta: result.meta });
   } catch (error) {
@@ -70,6 +81,40 @@ export const getPublicShopReviewsController = async (
     const reviews = await getPublicShopReviews(
       req.params.shopSlug as string,
       req.query as unknown as { page?: number; limit?: number },
+    );
+    sendSuccess(res, reviews.items, { meta: reviews.meta });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getPublicStaffReviewsController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const reviews = await listStaffReviews(
+      req.params.shopSlug as string,
+      req.params.staffId as string,
+      req.query as unknown as { page: number; limit: number },
+    );
+    sendSuccess(res, reviews.items, { meta: reviews.meta });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getPublicServiceReviewsController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const reviews = await listServiceReviews(
+      req.params.shopSlug as string,
+      req.params.serviceId as string,
+      req.query as unknown as { page: number; limit: number },
     );
     sendSuccess(res, reviews.items, { meta: reviews.meta });
   } catch (error) {

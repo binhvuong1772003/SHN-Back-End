@@ -5,96 +5,132 @@ const prisma_1 = require("../../db/prisma");
 const ApiError_1 = require("../../utils/ApiError");
 const calendar_service_1 = require("../../service/calendar/calendar.service");
 const getPublicMarketplaceShops = async (query = {}) => {
-    const page = Math.max(1, Number(query.page) || 1);
-    const limit = Math.min(24, Math.max(1, Number(query.limit) || 12));
-    const search = query.search?.trim();
-    const city = query.city?.trim();
-    const where = {
-        status: "ACTIVE",
-        ...(city
-            ? {
-                OR: [
-                    { city: { contains: city, mode: "insensitive" } },
-                    { district: { contains: city, mode: "insensitive" } },
-                    { address: { contains: city, mode: "insensitive" } },
-                ],
-            }
-            : {}),
-        ...(search
-            ? {
-                AND: [
-                    {
-                        OR: [
-                            { name: { contains: search, mode: "insensitive" } },
-                            { description: { contains: search, mode: "insensitive" } },
-                            {
-                                services: {
-                                    some: {
-                                        isActive: true,
-                                        OR: [
-                                            { name: { contains: search, mode: "insensitive" } },
-                                            { description: { contains: search, mode: "insensitive" } },
-                                        ],
-                                    },
-                                },
-                            },
-                        ],
-                    },
-                ],
-            }
-            : {}),
-    };
-    const [items, total] = await Promise.all([
-        prisma_1.db.shop.findMany({
-            where,
-            orderBy: [{ createdAt: "desc" }],
-            skip: (page - 1) * limit,
-            take: limit,
-            select: {
-                id: true,
-                name: true,
-                slug: true,
-                type: true,
-                address: true,
-                city: true,
-                district: true,
-                logoUrl: true,
-                coverUrl: true,
-                timezone: true,
-                description: true,
-                services: {
-                    where: { isActive: true },
-                    orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-                    take: 8,
-                    select: {
-                        id: true,
-                        shopId: true,
-                        categoryId: true,
-                        name: true,
-                        description: true,
-                        basePrice: true,
-                        durationMin: true,
-                        imageUrl: true,
-                        isActive: true,
-                        sortOrder: true,
-                        createdAt: true,
-                        updatedAt: true,
+    const requestedPage = Number(query.page);
+    const requestedLimit = Number(query.limit);
+    const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+    const limit = Number.isInteger(requestedLimit) && requestedLimit > 0
+        ? Math.min(24, requestedLimit)
+        : 12;
+    const search = query.search?.trim().slice(0, 100) || undefined;
+    const city = query.city?.trim().slice(0, 100) || undefined;
+    const conditions = [{ status: "ACTIVE" }];
+    if (query.type)
+        conditions.push({ type: query.type });
+    if (city) {
+        conditions.push({
+            OR: [
+                { city: { contains: city, mode: "insensitive" } },
+                { district: { contains: city, mode: "insensitive" } },
+                { address: { contains: city, mode: "insensitive" } },
+            ],
+        });
+    }
+    if (search) {
+        conditions.push({
+            OR: [
+                { name: { contains: search, mode: "insensitive" } },
+                { description: { contains: search, mode: "insensitive" } },
+                {
+                    services: {
+                        some: {
+                            isActive: true,
+                            OR: [
+                                { name: { contains: search, mode: "insensitive" } },
+                                { description: { contains: search, mode: "insensitive" } },
+                            ],
+                        },
                     },
                 },
-            },
-        }),
-        prisma_1.db.shop.count({ where }),
-    ]);
+            ],
+        });
+    }
+    const where = { AND: conditions };
+    const total = await prisma_1.db.shop.count({ where });
     const totalPages = Math.ceil(total / limit);
+    const safePage = totalPages > 0 ? Math.min(page, totalPages) : 1;
+    const items = await prisma_1.db.shop.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        skip: (safePage - 1) * limit,
+        take: limit,
+        select: {
+            id: true,
+            name: true,
+            slug: true,
+            type: true,
+            address: true,
+            city: true,
+            district: true,
+            logoUrl: true,
+            coverUrl: true,
+            timezone: true,
+            description: true,
+            ratingAverage: true,
+            ratingCount: true,
+            services: {
+                where: { isActive: true },
+                orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+                take: 12,
+                select: {
+                    id: true,
+                    shopId: true,
+                    categoryId: true,
+                    category: {
+                        select: {
+                            id: true,
+                            name: true,
+                            icon: true,
+                            color: true,
+                        },
+                    },
+                    name: true,
+                    description: true,
+                    basePrice: true,
+                    durationMin: true,
+                    imageUrl: true,
+                    isActive: true,
+                    sortOrder: true,
+                    ratingAverage: true,
+                    ratingCount: true,
+                    createdAt: true,
+                    updatedAt: true,
+                },
+            },
+        },
+    });
+    const matchedServices = search && items.length
+        ? await prisma_1.db.service.findMany({
+            where: {
+                shopId: { in: items.map((shop) => shop.id) },
+                isActive: true,
+                OR: [
+                    { name: { contains: search, mode: "insensitive" } },
+                    { description: { contains: search, mode: "insensitive" } },
+                ],
+            },
+            orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }, { id: "asc" }],
+            select: { id: true, shopId: true, name: true, basePrice: true, durationMin: true },
+        })
+        : [];
+    const matchedByShop = new Map();
+    for (const service of matchedServices) {
+        const current = matchedByShop.get(service.shopId) ?? [];
+        if (current.length < 3)
+            current.push(service);
+        matchedByShop.set(service.shopId, current);
+    }
     return {
-        items,
+        items: items.map((shop) => ({
+            ...shop,
+            ...(search ? { matchedServices: matchedByShop.get(shop.id) ?? [] } : {}),
+        })),
         meta: {
             total,
-            page: totalPages > 0 ? Math.min(page, totalPages) : 1,
+            page: safePage,
             limit,
             totalPages,
-            hasNext: page < totalPages,
-            hasPrev: page > 1,
+            hasNext: safePage < totalPages,
+            hasPrev: safePage > 1,
         },
     };
 };
@@ -124,9 +160,16 @@ const getPublicShopBySlug = async (shopSlug) => {
             closeTime: true,
             workDays: true,
             timezone: true,
+            ratingAverage: true,
+            ratingCount: true,
             businessHours: {
                 orderBy: { dayOfWeek: "asc" },
-                select: { dayOfWeek: true, openTime: true, closeTime: true, isClosed: true },
+                select: {
+                    dayOfWeek: true,
+                    openTime: true,
+                    closeTime: true,
+                    isClosed: true,
+                },
             },
             services: {
                 where: { isActive: true },
@@ -135,6 +178,14 @@ const getPublicShopBySlug = async (shopSlug) => {
                     id: true,
                     shopId: true,
                     categoryId: true,
+                    category: {
+                        select: {
+                            id: true,
+                            name: true,
+                            icon: true,
+                            color: true,
+                        },
+                    },
                     name: true,
                     description: true,
                     basePrice: true,
@@ -142,6 +193,8 @@ const getPublicShopBySlug = async (shopSlug) => {
                     imageUrl: true,
                     isActive: true,
                     sortOrder: true,
+                    ratingAverage: true,
+                    ratingCount: true,
                     createdAt: true,
                     updatedAt: true,
                     options: {
@@ -155,7 +208,13 @@ const getPublicShopBySlug = async (shopSlug) => {
                             values: {
                                 where: { isActive: true },
                                 orderBy: { sortOrder: "asc" },
-                                select: { id: true, name: true, price: true, duration: true, sortOrder: true },
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    price: true,
+                                    duration: true,
+                                    sortOrder: true,
+                                },
                             },
                         },
                     },
@@ -169,10 +228,12 @@ const getPublicShopBySlug = async (shopSlug) => {
                     nickname: true,
                     bio: true,
                     avatarUrl: true,
+                    avgRating: true,
+                    totalRatings: true,
                     user: { select: { name: true, avatarUrl: true } },
                 },
             },
-            reviews: {
+            shopReviews: {
                 where: { isPublic: true },
                 orderBy: { createdAt: "desc" },
                 take: 8,
@@ -190,13 +251,15 @@ const getPublicShopBySlug = async (shopSlug) => {
     });
     if (!shop)
         throw new ApiError_1.ApiError(404, "Shop not found");
-    const rating = await prisma_1.db.review.aggregate({
+    const rating = await prisma_1.db.shopReview.aggregate({
         where: { shopId: shop.id, isPublic: true },
         _avg: { rating: true },
         _count: { _all: true },
     });
+    const { shopReviews, ...publicShop } = shop;
     return {
-        ...shop,
+        ...publicShop,
+        reviews: shopReviews,
         rating: {
             average: rating._avg.rating ?? null,
             count: rating._count._all,
@@ -222,8 +285,8 @@ const getPublicShopReviews = async (shopSlug, query = {}) => {
     const limit = Math.min(20, Math.max(1, Number(query.limit) || 8));
     const where = { shopId: shop.id, isPublic: true };
     const [total, items] = await Promise.all([
-        prisma_1.db.review.count({ where }),
-        prisma_1.db.review.findMany({
+        prisma_1.db.shopReview.count({ where }),
+        prisma_1.db.shopReview.findMany({
             where,
             orderBy: { createdAt: "desc" },
             skip: (page - 1) * limit,

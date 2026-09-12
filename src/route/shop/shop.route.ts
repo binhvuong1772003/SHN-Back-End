@@ -29,6 +29,7 @@ import { getCurrentShopMembershipController } from "@/controller/shop/membership
 import payrollRouter from "../payroll/payroll.route";
 import financialReportRouter from "../financial-report/financial-report.route";
 import paymentRouter from "../payment/payment.route";
+import reviewRouter from "./review.route";
 
 const shopRouter = Router();
 shopRouter.use(authenticate);
@@ -79,5 +80,6 @@ shopRouter.use("/:shopSlug/customers", customerRouter);
 shopRouter.use("/:shopSlug/payrolls", payrollRouter);
 shopRouter.use("/:shopSlug/financial-report", financialReportRouter);
 shopRouter.use("/:shopSlug/payments", paymentRouter);
+shopRouter.use("/:shopSlug/reviews", reviewRouter);
 
 export default shopRouter;

@@ -21,6 +21,7 @@ const membership_controller_1 = require("../../controller/shop/membership.contro
 const payroll_route_1 = __importDefault(require("../payroll/payroll.route"));
 const financial_report_route_1 = __importDefault(require("../financial-report/financial-report.route"));
 const payment_route_1 = __importDefault(require("../payment/payment.route"));
+const review_route_1 = __importDefault(require("./review.route"));
 const shopRouter = (0, express_1.Router)();
 shopRouter.use(authenticate_middleware_1.authenticate);
 shopRouter.post("/", (0, validation_middleware_1.validate)({ body: shop_validate_1.createShopSchema }), shop_controller_1.createShopController);
@@ -42,4 +43,5 @@ shopRouter.use("/:shopSlug/customers", customer_route_1.default);
 shopRouter.use("/:shopSlug/payrolls", payroll_route_1.default);
 shopRouter.use("/:shopSlug/financial-report", financial_report_route_1.default);
 shopRouter.use("/:shopSlug/payments", payment_route_1.default);
+shopRouter.use("/:shopSlug/reviews", review_route_1.default);
 exports.default = shopRouter;

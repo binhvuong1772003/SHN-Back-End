@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateAddonSchema = exports.createAddonSchema = exports.updateServicePackageSchema = exports.createServicePackageSchema = exports.updateServiceOptionSchema = exports.createServiceOptionSchema = exports.updateServiceSchema = exports.createServiceSchema = exports.updateCategorySchema = exports.createCategorySchema = void 0;
+exports.updateAddonSchema = exports.createAddonSchema = exports.updateServicePackageSchema = exports.createServicePackageSchema = exports.updateServiceOptionSchema = exports.createServiceOptionSchema = exports.updateServiceSchema = exports.createServiceSchema = exports.categoryListQuerySchema = exports.updateCategorySchema = exports.createCategorySchema = void 0;
 // validation/service.validate.ts
 const zod_1 = require("zod");
 const common_validate_1 = require("../validation/common.validate");
@@ -9,6 +9,15 @@ exports.createCategorySchema = zod_1.z.object({
     imageUrl: zod_1.z.string().url("Invalid URL").optional(),
 });
 exports.updateCategorySchema = exports.createCategorySchema.partial();
+exports.categoryListQuerySchema = zod_1.z.object({
+    page: zod_1.z.coerce.number().int().min(1).max(10000).default(1),
+    limit: zod_1.z.coerce.number().int().min(1).max(50).default(20),
+    search: zod_1.z.string().trim().max(100).optional(),
+    status: zod_1.z.enum(["ACTIVE", "INACTIVE"]).optional(),
+    sort: zod_1.z
+        .enum(["RECENT", "NAME_ASC", "NAME_DESC", "ORDER_ASC"])
+        .default("ORDER_ASC"),
+});
 // ============================================================
 // OPTION VALUE
 // ============================================================

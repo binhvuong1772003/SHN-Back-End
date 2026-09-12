@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPublicShopReviewsController = exports.getPublicShopAvailabilityController = exports.getPublicShopController = exports.getPublicMarketplaceShopsController = void 0;
+exports.getPublicServiceReviewsController = exports.getPublicStaffReviewsController = exports.getPublicShopReviewsController = exports.getPublicShopAvailabilityController = exports.getPublicShopController = exports.getPublicMarketplaceShopsController = void 0;
 const marketplace_service_1 = require("../../service/marketplace/marketplace.service");
+const review_service_1 = require("../../service/shop/review.service");
 const apiResponse_1 = require("../../utils/apiResponse");
 const getPublicMarketplaceShopsController = async (req, res, next) => {
     try {
@@ -10,6 +11,12 @@ const getPublicMarketplaceShopsController = async (req, res, next) => {
             limit: Number(req.query.limit) || 12,
             search: typeof req.query.search === "string" ? req.query.search : undefined,
             city: typeof req.query.city === "string" ? req.query.city : undefined,
+            type: req.query.type === "NAIL" ||
+                req.query.type === "SPA" ||
+                req.query.type === "HAIR" ||
+                req.query.type === "COMBO"
+                ? req.query.type
+                : undefined,
         });
         (0, apiResponse_1.sendSuccess)(res, result.items, { meta: result.meta });
     }
@@ -54,3 +61,23 @@ const getPublicShopReviewsController = async (req, res, next) => {
     }
 };
 exports.getPublicShopReviewsController = getPublicShopReviewsController;
+const getPublicStaffReviewsController = async (req, res, next) => {
+    try {
+        const reviews = await (0, review_service_1.listStaffReviews)(req.params.shopSlug, req.params.staffId, req.query);
+        (0, apiResponse_1.sendSuccess)(res, reviews.items, { meta: reviews.meta });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.getPublicStaffReviewsController = getPublicStaffReviewsController;
+const getPublicServiceReviewsController = async (req, res, next) => {
+    try {
+        const reviews = await (0, review_service_1.listServiceReviews)(req.params.shopSlug, req.params.serviceId, req.query);
+        (0, apiResponse_1.sendSuccess)(res, reviews.items, { meta: reviews.meta });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.getPublicServiceReviewsController = getPublicServiceReviewsController;

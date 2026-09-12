@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.offDayListQuerySchema = exports.calendarMonthQuerySchema = exports.calendarSlotsListQuerySchema = exports.calendarDateQuerySchema = exports.calendarSlotsQuerySchema = exports.customerListQuerySchema = exports.topCustomerQuerySchema = exports.notificationListQuerySchema = exports.staffListQuerySchema = exports.idParamSchema = exports.dateRangeSchema = exports.paginationSchema = exports.dateOnlySchema = exports.objectIdSchema = void 0;
+exports.offDayListQuerySchema = exports.calendarMonthQuerySchema = exports.calendarSlotsListQuerySchema = exports.calendarDateQuerySchema = exports.calendarSlotsQuerySchema = exports.customerListQuerySchema = exports.topCustomerQuerySchema = exports.notificationListQuerySchema = exports.staffListQuerySchema = exports.idParamSchema = exports.dateRangeSchema = exports.marketplaceShopsQuerySchema = exports.paginationSchema = exports.dateOnlySchema = exports.objectIdSchema = void 0;
 const zod_1 = require("zod");
 exports.objectIdSchema = zod_1.z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ID format");
 exports.dateOnlySchema = zod_1.z
@@ -13,6 +13,13 @@ exports.dateOnlySchema = zod_1.z
 exports.paginationSchema = zod_1.z.object({
     page: zod_1.z.coerce.number().int().min(1).max(10000).default(1),
     limit: zod_1.z.coerce.number().int().min(1).max(100).default(20),
+});
+exports.marketplaceShopsQuerySchema = zod_1.z.object({
+    page: zod_1.z.coerce.number().int().min(1).max(10000).default(1),
+    limit: zod_1.z.coerce.number().int().min(1).max(24).default(12),
+    search: zod_1.z.string().trim().max(100).optional(),
+    city: zod_1.z.string().trim().max(100).optional(),
+    type: zod_1.z.enum(["NAIL", "SPA", "HAIR", "COMBO"]).optional(),
 });
 exports.dateRangeSchema = zod_1.z.object({
     from: exports.dateOnlySchema.optional(),

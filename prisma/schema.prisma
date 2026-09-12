@@ -182,7 +182,9 @@
     customerAppointments Appointment[]       @relation("CustomerAppointments")
     appointmentLifecycleChanges AppointmentLifecycle[] @relation("AppointmentLifecycleChanges")
     notifications       Notification[]
-    reviews             Review[]
+    shopReviews         ShopReview[]     @relation("ShopReviewCustomer")
+    staffReviews        StaffReview[]    @relation("StaffReviewCustomer")
+    serviceReviews      ServiceReview[]  @relation("ServiceReviewCustomer")
     payrolls            Payroll[]
     aiConversations     AiConversation[]
 
@@ -300,7 +302,8 @@
     timezone      String     @default("Asia/Ho_Chi_Minh")
     ownerId       String     @db.ObjectId
     settings      ShopSettings?
-
+    ratingAverage Float @default(0)
+    ratingCount   Int   @default(0)
     owner             User                @relation("ShopOwner", fields: [ownerId], references: [id])
     invites           ShopInvite[]
     staffMembers      ShopStaff[]
@@ -314,13 +317,16 @@
     notifications     Notification[]
     salaryConfigs     StaffSalaryConfig[]
     payrolls          Payroll[]
-    reviews           Review[]
+    shopReviews       ShopReview[]       @relation("ShopReviews")
+    staffReviews      StaffReview[]      @relation("StaffReviews")
+    serviceReviews    ServiceReview[]    @relation("ServiceReviews")
     aiConversations   AiConversation[]
-businessHours ShopBusinessHour[]
+    businessHours ShopBusinessHour[]
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
+    @@index([status, ratingAverage, ratingCount])
     @@map("shops")
   }
 
@@ -412,6 +418,7 @@ businessHours ShopBusinessHour[]
     services      StaffService[]
     appointments  Appointment[]
     commissions   ServiceCommission[]
+    reviews       StaffReview[] @relation("StaffReviews")
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
@@ -626,6 +633,8 @@ businessHours ShopBusinessHour[]
     imageUrl    String?
     isActive    Boolean @default(true)
     sortOrder   Int     @default(0)
+    ratingAverage Float @default(0)
+    ratingCount   Int   @default(0)
 
     shop     Shop             @relation(fields: [shopId], references: [id])
     category ServiceCategory? @relation(fields: [categoryId], references: [id])
@@ -636,12 +645,14 @@ businessHours ShopBusinessHour[]
     commissions         ServiceCommission[]
     packageItems        ServicePackageItem[]
     addons              AddonService[]
+    reviews             ServiceReview[] @relation("ServiceReviews")
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
     @@index([shopId, isActive])
     @@index([categoryId])
+    @@index([shopId, isActive, ratingAverage, ratingCount])
     @@map("services")
   }
 
@@ -770,7 +781,9 @@ businessHours ShopBusinessHour[]
     packages AppointmentPackage[]
     addons   AppointmentAddon[]
     payment  Payment?
-    review   Review?
+    shopReview     ShopReview?       @relation("ShopReviewAppointment")
+    staffReview    StaffReview?      @relation("StaffReviewAppointment")
+    serviceReviews ServiceReview[]   @relation("ServiceReviewAppointment")
     lifecycle AppointmentLifecycle[]
 
     createdAt DateTime @default(now())
@@ -815,6 +828,7 @@ businessHours ShopBusinessHour[]
     appointment    Appointment              @relation(fields: [appointmentId], references: [id])
     service        Service                  @relation(fields: [serviceId], references: [id])
     selectedValues AppointmentOptionValue[]
+    review         ServiceReview?
 
     @@map("appointment_services")
   }
@@ -890,26 +904,84 @@ businessHours ShopBusinessHour[]
     @@map("payments")
   }
 
-  model Review {
-    id            String    @id @default(auto()) @map("_id") @db.ObjectId
-    appointmentId String    @unique @db.ObjectId
-    customerId    String    @db.ObjectId
-    shopId        String    @db.ObjectId
-    staffId       String?   @db.ObjectId
+  model ShopReview {
+    id            String   @id @default(auto()) @map("_id") @db.ObjectId
+    appointmentId String   @unique @db.ObjectId
+    customerId    String   @db.ObjectId
+    shopId        String   @db.ObjectId
     rating        Int
     comment       String?
-    imageUrls     String[]  @default([])
-    isPublic      Boolean   @default(true)
+    imageUrls     String[] @default([])
+    isPublic      Boolean  @default(true)
     replyContent  String?
     repliedAt     DateTime?
 
-    appointment Appointment @relation(fields: [appointmentId], references: [id])
-    customer    User        @relation(fields: [customerId], references: [id])
-    shop        Shop        @relation(fields: [shopId], references: [id])
+    appointment Appointment @relation("ShopReviewAppointment", fields: [appointmentId], references: [id])
+    customer    User        @relation("ShopReviewCustomer", fields: [customerId], references: [id])
+    shop        Shop        @relation("ShopReviews", fields: [shopId], references: [id])
 
     createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
 
-    @@map("reviews")
+    @@index([shopId, isPublic, createdAt])
+    @@index([customerId, createdAt])
+    @@map("shop_reviews")
+  }
+
+  model StaffReview {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    appointmentId String @unique @db.ObjectId
+    customerId  String   @db.ObjectId
+    shopId      String   @db.ObjectId
+    shopStaffId String   @db.ObjectId
+    rating      Int
+    comment     String?
+    imageUrls   String[] @default([])
+    isPublic    Boolean  @default(true)
+    replyContent String?
+    repliedAt   DateTime?
+
+    appointment Appointment @relation("StaffReviewAppointment", fields: [appointmentId], references: [id])
+    customer    User        @relation("StaffReviewCustomer", fields: [customerId], references: [id])
+    shop        Shop        @relation("StaffReviews", fields: [shopId], references: [id])
+    staff       ShopStaff   @relation("StaffReviews", fields: [shopStaffId], references: [id])
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([shopId, isPublic, createdAt])
+    @@index([shopStaffId, isPublic, createdAt])
+    @@index([customerId, createdAt])
+    @@map("staff_reviews")
+  }
+
+  model ServiceReview {
+    id                   String   @id @default(auto()) @map("_id") @db.ObjectId
+    appointmentId        String   @db.ObjectId
+    appointmentServiceId String   @unique @db.ObjectId
+    customerId           String   @db.ObjectId
+    shopId               String   @db.ObjectId
+    serviceId            String   @db.ObjectId
+    rating               Int
+    comment              String?
+    imageUrls            String[] @default([])
+    isPublic             Boolean  @default(true)
+    replyContent        String?
+    repliedAt           DateTime?
+
+    appointment        Appointment        @relation("ServiceReviewAppointment", fields: [appointmentId], references: [id])
+    appointmentService AppointmentService @relation(fields: [appointmentServiceId], references: [id])
+    customer           User               @relation("ServiceReviewCustomer", fields: [customerId], references: [id])
+    shop               Shop               @relation("ServiceReviews", fields: [shopId], references: [id])
+    service            Service            @relation("ServiceReviews", fields: [serviceId], references: [id])
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([shopId, isPublic, createdAt])
+    @@index([serviceId, isPublic, createdAt])
+    @@index([customerId, createdAt])
+    @@map("service_reviews")
   }
 
   model Promotion {

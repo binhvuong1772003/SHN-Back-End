@@ -197,10 +197,10 @@ const calculateDraftForStaff = async (
       include: { services: true },
     }),
     db.serviceCommission.findMany({ where: { shopStaffId: staff.id } }),
-    db.review.count({
+    db.staffReview.count({
       where: {
         shopId: shop.id,
-        staffId: staff.userId,
+        shopStaffId: staff.id,
         rating: { gte: 4 },
         createdAt: { gte: periodStart, lte: queryEnd },
       },

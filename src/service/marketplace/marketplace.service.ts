@@ -1,4 +1,5 @@
 import { db } from "@/db/prisma";
+import type { Prisma, ShopType } from "@prisma/client";
 import { ApiError } from "@/utils/ApiError";
 import { getAvailableSlots } from "@/service/calendar/calendar.service";
 
@@ -7,57 +8,61 @@ export interface PublicMarketplaceQuery {
   limit?: number;
   search?: string;
   city?: string;
+  type?: ShopType;
 }
 
 export const getPublicMarketplaceShops = async (
   query: PublicMarketplaceQuery = {},
 ) => {
-  const page = Math.max(1, Number(query.page) || 1);
-  const limit = Math.min(24, Math.max(1, Number(query.limit) || 12));
-  const search = query.search?.trim();
-  const city = query.city?.trim();
+  const requestedPage = Number(query.page);
+  const requestedLimit = Number(query.limit);
+  const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const limit = Number.isInteger(requestedLimit) && requestedLimit > 0
+    ? Math.min(24, requestedLimit)
+    : 12;
+  const search = query.search?.trim().slice(0, 100) || undefined;
+  const city = query.city?.trim().slice(0, 100) || undefined;
 
-  const where = {
-    status: "ACTIVE" as const,
-    ...(city
-      ? {
-          OR: [
-            { city: { contains: city, mode: "insensitive" as const } },
-            { district: { contains: city, mode: "insensitive" as const } },
-            { address: { contains: city, mode: "insensitive" as const } },
-          ],
-        }
-      : {}),
-    ...(search
-      ? {
-          AND: [
-            {
+  const conditions: Prisma.ShopWhereInput[] = [{ status: "ACTIVE" }];
+  if (query.type) conditions.push({ type: query.type });
+  if (city) {
+    conditions.push({
+      OR: [
+        { city: { contains: city, mode: "insensitive" } },
+        { district: { contains: city, mode: "insensitive" } },
+        { address: { contains: city, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (search) {
+    conditions.push({
+      OR: [
+        { name: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+        {
+          services: {
+            some: {
+              isActive: true,
               OR: [
-                { name: { contains: search, mode: "insensitive" as const } },
-                { description: { contains: search, mode: "insensitive" as const } },
-                {
-                  services: {
-                    some: {
-                      isActive: true,
-                      OR: [
-                        { name: { contains: search, mode: "insensitive" as const } },
-                        { description: { contains: search, mode: "insensitive" as const } },
-                      ],
-                    },
-                  },
-                },
+                { name: { contains: search, mode: "insensitive" } },
+                { description: { contains: search, mode: "insensitive" } },
               ],
             },
-          ],
-        }
-      : {}),
-  };
+          },
+        },
+      ],
+    });
+  }
 
-  const [items, total] = await Promise.all([
-    db.shop.findMany({
+  const where: Prisma.ShopWhereInput = { AND: conditions };
+  const total = await db.shop.count({ where });
+  const totalPages = Math.ceil(total / limit);
+  const safePage = totalPages > 0 ? Math.min(page, totalPages) : 1;
+
+  const items = await db.shop.findMany({
       where,
-      orderBy: [{ createdAt: "desc" }],
-      skip: (page - 1) * limit,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      skip: (safePage - 1) * limit,
       take: limit,
       select: {
         id: true,
@@ -71,14 +76,24 @@ export const getPublicMarketplaceShops = async (
         coverUrl: true,
         timezone: true,
         description: true,
+        ratingAverage: true,
+        ratingCount: true,
         services: {
           where: { isActive: true },
           orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-          take: 8,
+          take: 12,
           select: {
             id: true,
             shopId: true,
             categoryId: true,
+            category: {
+              select: {
+                id: true,
+                name: true,
+                icon: true,
+                color: true,
+              },
+            },
             name: true,
             description: true,
             basePrice: true,
@@ -86,25 +101,48 @@ export const getPublicMarketplaceShops = async (
             imageUrl: true,
             isActive: true,
             sortOrder: true,
+            ratingAverage: true,
+            ratingCount: true,
             createdAt: true,
             updatedAt: true,
           },
         },
       },
-    }),
-    db.shop.count({ where }),
-  ]);
+    });
 
-  const totalPages = Math.ceil(total / limit);
+  const matchedServices = search && items.length
+    ? await db.service.findMany({
+        where: {
+          shopId: { in: items.map((shop) => shop.id) },
+          isActive: true,
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { description: { contains: search, mode: "insensitive" } },
+          ],
+        },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }, { id: "asc" }],
+        select: { id: true, shopId: true, name: true, basePrice: true, durationMin: true },
+      })
+    : [];
+  const matchedByShop = new Map<string, typeof matchedServices>();
+  for (const service of matchedServices) {
+    const current = matchedByShop.get(service.shopId) ?? [];
+    if (current.length < 3) current.push(service);
+    matchedByShop.set(service.shopId, current);
+  }
+
   return {
-    items,
+    items: items.map((shop) => ({
+      ...shop,
+      ...(search ? { matchedServices: matchedByShop.get(shop.id) ?? [] } : {}),
+    })),
     meta: {
       total,
-      page: totalPages > 0 ? Math.min(page, totalPages) : 1,
+      page: safePage,
       limit,
       totalPages,
-      hasNext: page < totalPages,
-      hasPrev: page > 1,
+      hasNext: safePage < totalPages,
+      hasPrev: safePage > 1,
     },
   };
 };
@@ -134,9 +172,16 @@ export const getPublicShopBySlug = async (shopSlug: string) => {
       closeTime: true,
       workDays: true,
       timezone: true,
+      ratingAverage: true,
+      ratingCount: true,
       businessHours: {
         orderBy: { dayOfWeek: "asc" },
-        select: { dayOfWeek: true, openTime: true, closeTime: true, isClosed: true },
+        select: {
+          dayOfWeek: true,
+          openTime: true,
+          closeTime: true,
+          isClosed: true,
+        },
       },
       services: {
         where: { isActive: true },
@@ -145,6 +190,14 @@ export const getPublicShopBySlug = async (shopSlug: string) => {
           id: true,
           shopId: true,
           categoryId: true,
+          category: {
+            select: {
+              id: true,
+              name: true,
+              icon: true,
+              color: true,
+            },
+          },
           name: true,
           description: true,
           basePrice: true,
@@ -152,6 +205,8 @@ export const getPublicShopBySlug = async (shopSlug: string) => {
           imageUrl: true,
           isActive: true,
           sortOrder: true,
+          ratingAverage: true,
+          ratingCount: true,
           createdAt: true,
           updatedAt: true,
           options: {
@@ -165,7 +220,13 @@ export const getPublicShopBySlug = async (shopSlug: string) => {
               values: {
                 where: { isActive: true },
                 orderBy: { sortOrder: "asc" },
-                select: { id: true, name: true, price: true, duration: true, sortOrder: true },
+                select: {
+                  id: true,
+                  name: true,
+                  price: true,
+                  duration: true,
+                  sortOrder: true,
+                },
               },
             },
           },
@@ -179,10 +240,12 @@ export const getPublicShopBySlug = async (shopSlug: string) => {
           nickname: true,
           bio: true,
           avatarUrl: true,
+          avgRating: true,
+          totalRatings: true,
           user: { select: { name: true, avatarUrl: true } },
         },
       },
-      reviews: {
+      shopReviews: {
         where: { isPublic: true },
         orderBy: { createdAt: "desc" },
         take: 8,
@@ -201,14 +264,16 @@ export const getPublicShopBySlug = async (shopSlug: string) => {
 
   if (!shop) throw new ApiError(404, "Shop not found");
 
-  const rating = await db.review.aggregate({
+  const rating = await db.shopReview.aggregate({
     where: { shopId: shop.id, isPublic: true },
     _avg: { rating: true },
     _count: { _all: true },
   });
 
+  const { shopReviews, ...publicShop } = shop;
   return {
-    ...shop,
+    ...publicShop,
+    reviews: shopReviews,
     rating: {
       average: rating._avg.rating ?? null,
       count: rating._count._all,
@@ -242,8 +307,8 @@ export const getPublicShopReviews = async (
   const limit = Math.min(20, Math.max(1, Number(query.limit) || 8));
   const where = { shopId: shop.id, isPublic: true };
   const [total, items] = await Promise.all([
-    db.review.count({ where }),
-    db.review.findMany({
+    db.shopReview.count({ where }),
+    db.shopReview.findMany({
       where,
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * limit,
